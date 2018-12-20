@@ -10,17 +10,11 @@ var scene, renderer, container, camera;
 var xpos, ypos, zpos;
 var particles;
 
+var vertices = [];
+var loaded = false;
+
 function createParticles(){
-    var vertices = [];
     var geometry = new THREE.BufferGeometry();
-
-    for (var i = 0; i < 10000; i++){
-        var x = 2000 * Math.random() - 1000;
-        var y = 2000 * Math.random() - 1000;
-        var z = 2000 * Math.random() - 1000;
-
-        vertices.push(x,y,z); 
-    }
 
     geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
 
@@ -38,14 +32,14 @@ function createParticles(){
 
 function readData(){
     d3.csv("py/135_Coordinates.csv", function(data) {
-        xpos = (data.x);
-        ypos = (data.y);
+        xpos = data.x;
+        ypos = data.y;
         zpos = data.z;
+        vertices.push(xpos, ypos, zpos);
     });
 }
 
 function init(){
-    readData();
     
     container = document.querySelector('#container');
     
@@ -66,15 +60,16 @@ function init(){
     scene.add( particles );
     
     container.appendChild(renderer.domElement);
+    update();
 }
+
 
 function update () {
 //particles.rotation.y += 0.001;
     renderer.render(scene, camera);
-    //    console.log(particles);
-
     requestAnimationFrame(update);
 }
 
+readData();
 init();
 requestAnimationFrame(update);
