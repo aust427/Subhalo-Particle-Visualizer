@@ -68,7 +68,7 @@ def rotate_coords_z(coordinates, beta):
     rot_mat_z = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
     return (coordinates @ rot_mat_z)
 
-
+""""https://matplotlib.org/gallery/user_interfaces/embedding_in_tk_canvas_sgskip.html"""
 def draw_figure(canvas, figure, loc=(0, 0)):
     """ Draw a matplotlib figure onto a Tk canvas
 
