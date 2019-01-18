@@ -9,19 +9,21 @@ const FAR = 8000;
 var scene, renderer, container, camera, controls;
 var scene2, renderer2, container2, camera2, axes;
     
-var my_JSON_object;
+var particle_JSON;
 
 var t_particles;
+
+var particleCount;
 
 var form = document.getElementById('snapHaloForm');
 
 var gradient = [
-    [0.00, [251, 98, 84]],
-    [7.88, [255,163, 80]],
-    [11.4, [255,243,151]],
-    [20.9, [254,255,208]],
-    [62.6, [248,247,252]], 
-    [94.4, [154,175,255]]
+    [0.00, [251,  98,  84]],
+    [7.88, [255, 163,  80]],
+    [11.4, [255, 243, 151]],
+    [20.9, [254, 255, 208]],
+    [62.6, [248, 247, 252]], 
+    [94.4, [154, 175, 255]]
 ];
 
 function requestJSON(snapshot, subhalo){
@@ -29,14 +31,12 @@ function requestJSON(snapshot, subhalo){
     var request = new XMLHttpRequest();
     request.open("GET", "../py/pos-T-data.json", false);
     request.send(null)
-    my_JSON_object = JSON.parse(request.responseText);
+    particle_JSON = JSON.parse(request.responseText);
 }
 
 // https://stackoverflow.com/questions/5384712/capture-a-form-submit-in-javascript
 function processForm(e) {
     if (e.preventDefault) e.preventDefault();
-
-    /* do what you want with the form */
     snapNum = document.forms.snapHaloForm.snapshot.value;
     subHaloNum = document.forms.snapHaloForm.subhalo.value;
     
@@ -71,7 +71,6 @@ function createCanvasMaterial(color, size) {
 }
 
 function colorRange(T, low, high, i){
-   // console.log(T, low[0], high[0]);
     if ((T > low[0])&&(T < high[0])){
         return [low, high];
     }
@@ -81,31 +80,51 @@ function colorRange(T, low, high, i){
     if (T > high[0]){
         return colorRange(T, gradient[i+1], gradient[i+2], i-2);
     }
-}
+} 
 
 function colorCalc(T){
     var range_T = colorRange(T, gradient[2], gradient[3], 2);
-    return(range_T[0]);
+    
+    var lb_x = range_T[0][0];
+    var lb_rgb = range_T[0][1];
+    
+    var hb_x = range_T[1][0];
+    var hb_rgb = range_T[1][1];
+    
+    var d_lb = T - lb_x;
+    var d_hb = hb_x - T;
+    
+    var tot_dist = hb_x - lb_x;
+    
+    var set = [];
+    
+    for (var i = 0; i < 3; i++){
+        set.push(lb_rgb[i] * d_lb / tot_dist + hb_rgb[i] * d_hb / tot_dist );
+    }
+    
+    var rT = [T, set];
+    return(rT);
 }
 
 function createParticlesBetter(){
-    var particleCount = 29934,
-    geometry = new THREE.BufferGeometry();
+    var geometry = new THREE.BufferGeometry();
     var rgb;
     var positions = [];
     var colors = [];
     var color = new THREE.Color();
     
+    particleCount = particle_JSON['count'];
+    
     for (var p = 0; p < particleCount; p++){
         // positions
-        var pX = my_JSON_object['pos-x'][p];
-        var pY = my_JSON_object['pos-y'][p];
-        var pZ = my_JSON_object['pos-z'][p];
+        var pX = particle_JSON['pos-x'][p];
+        var pY = particle_JSON['pos-y'][p];
+        var pZ = particle_JSON['pos-z'][p];
         
         positions.push(pX, pY, pZ);
         
         // colors
-        rgb = colorCalc(my_JSON_object['T'][p]);
+        rgb = colorCalc(particle_JSON['T'][p]);
         
         var r = rgb[1][0] / 255; 
         var g = rgb[1][1] / 255; 
@@ -115,12 +134,11 @@ function createParticlesBetter(){
     
     geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions,3));
     geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors,3));
-  //  geometry.computeBoundingSphere();
+    geometry.computeBoundingSphere();
     
     mat = createCanvasMaterial('#FFFFFF', 256);
     
     var pMaterial = new THREE.PointsMaterial({
-       // color: 0xFFFF00,
         size: 3,
         map: mat,
         vertexColors: THREE.VertexColors,
@@ -181,6 +199,7 @@ function init_scene(){
 }
 
 function update () {
+    //points.rotation.y += 0.0025;
     renderer.render(scene, camera);
     
     renderer2.render(scene2, camera2);
