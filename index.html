@@ -2,12 +2,24 @@
     <meta charset="utf-8">
     <script type="text/javascript" src="js/three.js-master/build/three.min.js"></script>
     <script type="text/javascript" src="js/d3/d3.min.js"></script>
+    <script type="text/javascript" src="js/three.js-master/examples/js/controls/OrbitControls.js"></script>
+        <link rel="stylesheet" type="text/css" href="main.css">
+
 </head>
 <html>
-<body onload="startup();">
-  <div id="container"></div>
-  <script type="text/javascript" src='js/intro_script.js'></script>
-    <script>
-    </script>
-</body>
+    <body>
+        <div id="HaloForm">
+            <form id="snapHaloForm">
+              Snapshot:
+              <input type="text" name="snapshot" value="135">
+              SubHalo:
+              <input type="text" name="subhalo" value="608">
+              <button type="submit">Submit</button>
+            </form> 
+        </div>
+        
+        <div id="container"></div>
+        <div id="inset"></div>
+        <script type="text/javascript" src='js/intro_script.js'></script>
+    </body>
 </html>
