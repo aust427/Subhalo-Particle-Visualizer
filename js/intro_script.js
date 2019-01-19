@@ -4,7 +4,7 @@ const HEIGHT = 1200;
 const VIEW_ANGLE = 45;
 const ASPECT = WIDTH / HEIGHT;
 const NEAR = 1;
-const FAR = 8000;
+const FAR = 10000;
 
 var scene, renderer, container, camera, controls;
 var scene2, renderer2, container2, camera2, axes;
@@ -26,12 +26,29 @@ var gradient = [
     [94.4, [154, 175, 255]]
 ];
 
-function requestJSON(snapshot, subhalo){
-    console.log(snapshot, subhalo);
-    var request = new XMLHttpRequest();
-    request.open("GET", "../py/pos-T-data.json", false);
-    request.send(null)
-    particle_JSON = JSON.parse(request.responseText);
+function PyJSON(parts) {
+	$.ajax({
+        type: 'POST',
+        url: "http://127.0.0.1:5000/particle_JSON",
+        data: JSON.stringify(parts),
+        dataType: 'json',
+        contentType: 'application/json; charset=UTF-8',
+        success: function(data){
+            console.log(data);
+            particle_JSON = data;
+            init_scene();
+        }
+    });
+    /*
+    // ajax the JSON to the server
+	$.post("http://127.0.0.1:5000/particle_JSON", parts, function(data){
+        console.log(data);
+        particle_JSON = data;
+        init_scene();
+	});
+    */
+	// stop link reloading the page
+    event.preventDefault();
 }
 
 // https://stackoverflow.com/questions/5384712/capture-a-form-submit-in-javascript
@@ -41,10 +58,13 @@ function processForm(e) {
     subHaloNum = document.forms.snapHaloForm.subhalo.value;
     
     if ((snapNum) && (subHaloNum)){
-        requestJSON(snapNum, subHaloNum);
+        var pyJSON = {
+            "snapshot": snapNum+'',
+            "subhalo": subHaloNum+''
+        };
+        PyJSON(pyJSON);
         document.getElementById("container").innerHTML = "";
         document.getElementById("inset").innerHTML = "";
-        init_scene();
     }
     
     return false;
@@ -199,7 +219,7 @@ function init_scene(){
 }
 
 function update () {
-    //points.rotation.y += 0.0025;
+   // points.rotation.y += 0.01;
     renderer.render(scene, camera);
     
     renderer2.render(scene2, camera2);
