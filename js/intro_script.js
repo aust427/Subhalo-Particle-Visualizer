@@ -1,10 +1,13 @@
-const WIDTH = 1200;
-const HEIGHT = 1200;
+const WIDTH = 1000;
+const HEIGHT = 1000;
  
 const VIEW_ANGLE = 45;
 const ASPECT = WIDTH / HEIGHT;
 const NEAR = 1;
 const FAR = 10000;
+
+var radius = 1000;
+var angle = 0;
 
 var scene, renderer, container, camera, controls;
 var scene2, renderer2, container2, camera2, axes;
@@ -16,6 +19,10 @@ var t_particles;
 var particleCount;
 
 var form = document.getElementById('snapHaloForm');
+
+var currentlyPressedKey = {};
+
+var frustum = new THREE.Frustum();
 
 var gradient = [
     [0.00, [251,  98,  84]],
@@ -39,14 +46,6 @@ function PyJSON(parts) {
             init_scene();
         }
     });
-    /*
-    // ajax the JSON to the server
-	$.post("http://127.0.0.1:5000/particle_JSON", parts, function(data){
-        console.log(data);
-        particle_JSON = data;
-        init_scene();
-	});
-    */
 	// stop link reloading the page
     event.preventDefault();
 }
@@ -90,6 +89,7 @@ function createCanvasMaterial(color, size) {
   return texture;
 }
 
+// binary search for finding the range for star colors
 function colorRange(T, low, high, i){
     if ((T > low[0])&&(T < high[0])){
         return [low, high];
@@ -102,6 +102,7 @@ function colorRange(T, low, high, i){
     }
 } 
 
+// calculate distance ratio for star color and return combination
 function colorCalc(T){
     var range_T = colorRange(T, gradient[2], gradient[3], 2);
     
@@ -119,7 +120,7 @@ function colorCalc(T){
     var set = [];
     
     for (var i = 0; i < 3; i++){
-        set.push(lb_rgb[i] * d_lb / tot_dist + hb_rgb[i] * d_hb / tot_dist );
+        set.push(lb_rgb[i] * (1 - d_lb / tot_dist) + hb_rgb[i] * (1 - d_hb / tot_dist) );
     }
     
     var rT = [T, set];
@@ -164,10 +165,10 @@ function createParticlesBetter(){
         vertexColors: THREE.VertexColors,
         blending: THREE.AdditiveBlending,
         alphaTest: 0.3
-        //transparent: true
     });    
     
     points = new THREE.Points(geometry, pMaterial); 
+   // points.frustumCulled = false;
     scene.add(points);
 }
 
@@ -175,18 +176,22 @@ function init_scene(){
     // Container
     container = document.querySelector('#container');
     
+    radius = 1000;
+    angle = 0;
+    
     // Camera
     camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR,FAR);
     camera.position.x = 0;
     camera.position.y = 0;
-    camera.position.z = 1000;
-   // camera.lookAt(new THREE.Vector3(0,0,0)); // Set look at coordinate like this
+    camera.position.z = radius;
+    
+    camera.frustumCulled = false;
 
     // Renderer
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(WIDTH, HEIGHT);
     
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
+   // controls = new THREE.OrbitControls(camera, renderer.domElement);
     
     // Scene
     scene = new THREE.Scene();
@@ -215,16 +220,82 @@ function init_scene(){
     scene2.add( axes );
     
     container.appendChild(renderer.domElement);
+    
+    document.onkeydown = handleKeyDown;
+    document.onkeyup = handleKeyUp;
+    
     requestAnimationFrame(update);
+}
+
+function handleKeyDown(event) {
+    currentlyPressedKey[event.keyCode] = true;
+}
+
+function handleKeyUp(event) {
+    currentlyPressedKey[event.keyCode] = false;
+}
+
+function getPoints(arr){
+    var ret = [];
+    for (var i = 0; i < particleCount; i++){
+        var t = new THREE.Vector3(arr[3*i], arr[3*i+1], arr[3*i+2]);
+        if (frustum.containsPoint(t)){
+            ret.push(t);
+        }
+    }
+    return(ret);
 }
 
 function update () {
    // points.rotation.y += 0.01;
-    renderer.render(scene, camera);
+    //radius -= 1;
+    //radius = Math.pow((Math.pow(camera.position.x, 2) + Math.pow(camera.position.x, 2) + Math.pow(camera.position.x, 2)), 0.5);
+
+    if(currentlyPressedKey[68]){
+        angle += 0.0075;
+        camera.position.x = radius * Math.sin(angle);
+        camera.position.z = radius * Math.cos(angle);
+    }
     
+    if(currentlyPressedKey[65]){
+        angle -= 0.0075;
+        camera.position.x = radius * Math.sin(angle);
+        camera.position.z = radius * Math.cos(angle);
+    }   
+    
+    if(currentlyPressedKey[83]){
+        if (radius > 1){
+            radius += 4;
+            camera.position.x = radius * Math.sin(angle);
+            camera.position.z = radius * Math.cos(angle);
+        }
+    }    
+    
+    if(currentlyPressedKey[87]){
+        if (radius - 4 > 1){
+            radius -= 4;
+            camera.position.x = radius * Math.sin(angle);
+            camera.position.z = radius * Math.cos(angle);
+
+        }
+    }    
+    
+    if (currentlyPressedKey[32]){
+           getPoints(points.geometry.attributes.position.array);
+    }
+
+    camera.lookAt(new THREE.Vector3(0,0,0)); // Set look at coordinate like this
+    
+    camera.updateMatrix(); // make sure camera's local matrix is updated
+    camera.updateMatrixWorld(); // make sure camera's world matrix is updated
+    camera.matrixWorldInverse.getInverse( camera.matrixWorld );
+
+    frustum.setFromMatrix( new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse ) );
+    
+    renderer.render(scene, camera);
     renderer2.render(scene2, camera2);
+    
     camera2.position.copy( camera.position );
-	camera2.position.sub( controls.target ); // added by @libe
 	camera2.position.setLength( 300 );
     camera2.lookAt( scene2.position );
     
