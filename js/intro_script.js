@@ -174,6 +174,27 @@ function createParticles() {
   scene.add(points);
 }
 
+function createAxes(vec, positive, line_col) {
+  var line_material = null;
+
+  if (positive) {
+    line_material = new THREE.LineBasicMaterial({ color: line_col });
+    createAxes(new THREE.Vector3(vec.x * -1, vec.y * -1, vec.z * -1), false, line_col);
+  } else {
+    line_material = new THREE.LineDashedMaterial({ color: line_col, dashSize: 4, gapSize: 4, linewidth: 2 });
+  }
+
+  var line_geometry = new THREE.Geometry();
+
+  line_geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+  line_geometry.vertices.push(vec);
+
+  line = new THREE.Line(line_geometry, line_material);
+  line.computeLineDistances();
+
+  scene.add(line);
+}
+
 function init_scene() {
   if (id !== null) {
     cancelAnimationFrame(id);
@@ -198,7 +219,11 @@ function init_scene() {
   // Scene
   scene = new THREE.Scene();
   scene.add(camera);
+
   createParticles();
+  createAxes(new THREE.Vector3(1000000, 0, 0), true, 0x0000ff);
+  createAxes(new THREE.Vector3(0, 1000000, 0), true, 0x00ff00);
+  createAxes(new THREE.Vector3(0, 0, -1000000), true, 0xff0000);
 
   container.appendChild(renderer.domElement);
 
