@@ -1,9 +1,12 @@
-#inset  {
-    background-color: #fff; /* or transparent; will show through only if renderer alpha: true */
-    margin: 20px;
-    padding: 0px;
+#opts_table{
     position: absolute;
-    left: 0px;
-    bottom: 0px;
-    z-index: 100;
+}
+
+#step_input, #rot_input{
+    width: 60px;
+}
+
+body{
+   /* color: white; */
+    /*background-color: black;*/
 }

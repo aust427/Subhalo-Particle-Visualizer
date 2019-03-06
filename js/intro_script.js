@@ -24,6 +24,9 @@ var frustum = new THREE.Frustum();
 
 var id = null;
 
+var angle = 0.0075;
+var step = 4;
+
 var gradient = [
   [0.00, [251, 98, 84]],
   [7.88, [255, 163, 80]],
@@ -32,6 +35,15 @@ var gradient = [
   [62.6, [248, 247, 252]],
   [94.4, [154, 175, 255]]
 ];
+
+function tablePosition() {
+  var p = $("#container");
+  var pos = p.position();
+
+  var d = document.getElementById('opts_table');
+  d.style.left = WIDTH + 20 + 'px';
+  d.style.top = pos.top;
+}
 
 function PyJSON(parts) {
   $.ajax({
@@ -88,32 +100,44 @@ function createCanvasMaterial(color, size) {
   return texture;
 }
 
-// binary search for finding the range for star colors
+
+/**
+ * Summary. Binary search for finding the range for star colors
+ * 
+ * @param {any} T
+ * @param {any} low
+ * @param {any} high
+ * @param {any} i
+ */
 function colorRange(T, low, high, i) {
-  if ((T > low[0]) && (T < high[0])) {
-    return [low, high];
-  }
-  if (T < low[0]) {
-    return colorRange(T, gradient[i - 2], gradient[i - 1], i - 2);
-  }
-  if (T > high[0]) {
-    return colorRange(T, gradient[i + 1], gradient[i + 2], i - 2);
-  }
+  if ((T > low[0]) && (T < high[0])) return [low, high];
+
+  if (T < low[0]) return colorRange(T, gradient[i - 2], gradient[i - 1], i - 2);
+  if (T > high[0]) return colorRange(T, gradient[i + 1], gradient[i + 2], i - 2);
 }
 
-// calculate distance ratio for star color and return combination
+
+/**
+ * Summary. calculate distance ratio for star color and returns combination
+ * 
+ * @param {any} T         
+ * 
+ * @return {any} [T, set] 
+ */
 function colorCalc(T) {
   var range_T = colorRange(T, gradient[2], gradient[3], 2);
 
+  // lower bound 
   var lb_x = range_T[0][0];
   var lb_rgb = range_T[0][1];
 
+  // higher bound
   var hb_x = range_T[1][0];
   var hb_rgb = range_T[1][1];
 
+  // distance calculator between lower and higher bound
   var d_lb = T - lb_x;
   var d_hb = hb_x - T;
-
   var tot_dist = hb_x - lb_x;
 
   var set = [];
@@ -122,19 +146,18 @@ function colorCalc(T) {
     set.push(lb_rgb[i] * (1 - d_lb / tot_dist) + hb_rgb[i] * (1 - d_hb / tot_dist));
   }
 
-  var rT = [T, set];
-  return (rT);
+  return ([T, set]);
 }
 
+/** 
+ * Summary. Creates particles for the scene. 
+ */
 function createParticles() {
   var geometry = new THREE.BufferGeometry();
   var rgb;
   var positions = [];
   var colors = [];
   var color = new THREE.Color();
-
-  var radius = 1000;
-  var angle = 0;
 
   particleCount = particle_JSON['count'];
 
@@ -170,32 +193,53 @@ function createParticles() {
   });
 
   points = new THREE.Points(geometry, pMaterial);
+  points.name = 'points';
   // points.frustumCulled = false;
   scene.add(points);
 }
 
-function createAxes(vec, positive, line_col) {
+function createGrids() {
+  var size = 10000;
+  var divisions = 100;
+  var colorGrid = 0x3d3d3d;
+
+  var grid = new THREE.GridHelper(size, divisions, colorGrid, colorGrid);
+  grid.name = 'grid';
+
+  scene.add(grid); 
+}
+
+/**
+ * Summary. Creates x-y-z axes for visually orienting the scene. 
+ * 
+ * @param {any} vec 
+ * @param {any} positive
+ * @param {any} line_col
+ */
+function createAxes(vec, positive, line_col, axis) {
   var line_material = null;
 
+  // postive - solid line, negative - dashed line 
   if (positive) {
     line_material = new THREE.LineBasicMaterial({ color: line_col });
-    createAxes(new THREE.Vector3(vec.x * -1, vec.y * -1, vec.z * -1), false, line_col);
+    createAxes(new THREE.Vector3(vec.x * -1, vec.y * -1, vec.z * -1), false, line_col, axis);
   } else {
     line_material = new THREE.LineDashedMaterial({ color: line_col, dashSize: 4, gapSize: 4, linewidth: 2 });
   }
 
   var line_geometry = new THREE.Geometry();
-
   line_geometry.vertices.push(new THREE.Vector3(0, 0, 0));
   line_geometry.vertices.push(vec);
 
   line = new THREE.Line(line_geometry, line_material);
+  line.name = (positive) ? axis + '-pos' : axis + '-neg'; 
   line.computeLineDistances();
 
   scene.add(line);
 }
 
 function init_scene() {
+  // Check to see if scene already exists, prevents initialization bug
   if (id !== null) {
     cancelAnimationFrame(id);
   }
@@ -207,7 +251,8 @@ function init_scene() {
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
   camera.position.x = 0;
   camera.position.y = 0;
-  camera.position.z = 1000;
+  camera.position.z = 750;
+  camera.name = 'cam'
 
   camera.frustumCulled = false;
 
@@ -220,10 +265,15 @@ function init_scene() {
   scene = new THREE.Scene();
   scene.add(camera);
 
+  // Add items to scene 
   createParticles();
-  createAxes(new THREE.Vector3(1000000, 0, 0), true, 0x0000ff);
-  createAxes(new THREE.Vector3(0, 1000000, 0), true, 0x00ff00);
-  createAxes(new THREE.Vector3(0, 0, -1000000), true, 0xff0000);
+  createGrids();
+  createAxes(new THREE.Vector3(1000000, 0, 0), true, 0x0000ff, 'x');
+  createAxes(new THREE.Vector3(0, 1000000, 0), true, 0x00ff00, 'z');
+  createAxes(new THREE.Vector3(0, 0, -1000000), true, 0xff0000, 'y');
+
+  $('#display_grid')[0].checked = true; 
+  $('#display_axes')[0].checked = true; 
 
   container.appendChild(renderer.domElement);
 
@@ -382,11 +432,11 @@ function getPoints(arr) {
     if (frustum.containsPoint(t)) {
       h_points.push([arr[3 * i], arr[3 * i + 1]]);
 
-      if (arr[3 * i] > maxX) { maxX = arr[3 * i]; }
-      if (arr[3 * i] < minX) { minX = arr[3 * i]; }
+      if (arr[3 * i] > maxX) maxX = arr[3 * i]; 
+      if (arr[3 * i] < minX) minX = arr[3 * i]; 
 
-      if (arr[3 * i + 1] > maxY) { maxY = arr[3 * i + 1]; }
-      if (arr[3 * i + 1] < minY) { minY = arr[3 * i + 1]; }
+      if (arr[3 * i + 1] > maxY) maxY = arr[3 * i + 1]; 
+      if (arr[3 * i + 1] < minY) minY = arr[3 * i + 1]; 
     }
   }
 
@@ -396,51 +446,22 @@ function getPoints(arr) {
 }
 
 function particleUpdate() {
-  var angle = 0.0075;
-
-  if (currentlyPressedKey[74]) {
-    points.rotation.y += angle;
-  }
-
-  if (currentlyPressedKey[76]) {
-    points.rotation.y -= angle;
-  }
-
-  if (currentlyPressedKey[73]) {
-    points.rotation.x += angle;
-  }
-
-  if (currentlyPressedKey[75]) {
-    points.rotation.x -= angle;
-  }
+  if (currentlyPressedKey[74]) points.rotation.y += angle;
+  if (currentlyPressedKey[76]) points.rotation.y -= angle;
+  
+  if (currentlyPressedKey[73]) points.rotation.x += angle;
+  if (currentlyPressedKey[75]) points.rotation.x -= angle;
 }
 
 function cameraUpdate() {
-  var dist = 4;
+  if (currentlyPressedKey[83]) camera.position.z += step;
+  if (currentlyPressedKey[87]) camera.position.z -= step;
 
-  if (currentlyPressedKey[83]) {
-    camera.position.z += dist;
-  }
-
-  if (currentlyPressedKey[87]) {
-    camera.position.z -= dist;
-  }
-
-  if (currentlyPressedKey[68]) {
-    camera.position.x += dist;
-  }
-
-  if (currentlyPressedKey[65]) {
-    camera.position.x -= dist;
-  }
-
-  if (currentlyPressedKey[82]) {
-    camera.position.y += dist;
-  }
-
-  if (currentlyPressedKey[70]) {
-    camera.position.y -= dist;
-  }
+  if (currentlyPressedKey[68]) camera.position.x += step;
+  if (currentlyPressedKey[65]) camera.position.x -= step;
+ 
+  if (currentlyPressedKey[82]) camera.position.y += step;
+  if (currentlyPressedKey[70]) camera.position.y -= step;
 }
 
 function update() {
@@ -461,33 +482,80 @@ function update() {
   id = requestAnimationFrame(update);
 }
 
+function init_blank() {
+  container = document.querySelector('#container');
+
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(WIDTH, HEIGHT);
+  renderer.domElement.id = 'render';
+
+  scene = new THREE.Scene();
+  container.appendChild(renderer.domElement);
+}
+
 function init() {
   if (form.attachEvent) {
     form.attachEvent("submit", processForm);
   } else {
     form.addEventListener("submit", processForm);
   }
+  tablePosition();
 }
 
 $(document).ready(function () {
   init();
+  init_blank();
+ 
   $("#P_cam").click(function () {
-    var camera_p = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
-    camera_p.position.x = camera.position.x;
-    camera_p.position.y = camera.position.y;
-    camera_p.position.z = camera.position.z;
+    if (camera) {
+      var camera_p = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+      camera_p.position.x = camera.position.x;
+      camera_p.position.y = camera.position.y;
+      camera_p.position.z = camera.position.z;
 
-    camera = camera_p;
-
-    console.log(camera);
-
+      camera = camera_p;
+    }
   });
   $("#O_cam").click(function () {
-    var viewSize = 1000;
-    camera_o = new THREE.OrthographicCamera(-ASPECT * viewSize / 2, ASPECT * viewSize / 2, viewSize / 2, -viewSize / 2, -camera.position.z, FAR);
-    camera_o.position.x = camera.position.x;
-    camera_o.position.y = camera.position.y;
-    camera_o.position.z = camera.position.z;
-    camera = camera_o;
+    if (camera) {
+      var viewSize = 1000;
+      camera_o = new THREE.OrthographicCamera(-ASPECT * viewSize / 2, ASPECT * viewSize / 2, viewSize / 2, -viewSize / 2, -camera.position.z, FAR);
+      camera_o.position.x = camera.position.x;
+      camera_o.position.y = camera.position.y;
+      camera_o.position.z = camera.position.z;
+
+      camera = camera_o;
+    }
+  });
+  $('#display_grid').change(function () {
+    if (camera) {
+      scene.getObjectByName('grid').visible = !scene.getObjectByName('grid').visible;
+    }
+  });
+  $('#reset_cam').click(function () {
+    if (camera) {
+      camera.position.x = 0;
+      camera.position.y = 0; 
+      camera.position.z = 750;
+    }
+  });
+  $('#reset_rot').click(function () {
+    if (camera) {
+      scene.getObjectByName('points').rotation.x = 0;
+      scene.getObjectByName('points').rotation.y = 0;
+      scene.getObjectByName('points').rotation.z = 0;
+    }
+  })
+  $('#display_axes').change(function () {
+    if (camera) {
+      var axis_flag = !scene.getObjectByName('x-pos').visible;
+
+      scene.getObjectByName('x-pos').visible = axis_flag;
+      scene.getObjectByName('x-neg').visible = axis_flag;
+      scene.getObjectByName('y-pos').visible = axis_flag;
+      scene.getObjectByName('y-neg').visible = axis_flag;
+      scene.getObjectByName('z-pos').visible = axis_flag;
+      scene.getObjectByName('z-neg').visible = axis_flag;
+    }
   });
 });

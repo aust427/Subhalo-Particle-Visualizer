@@ -17,14 +17,79 @@
             <button type="submit">Submit</button>
         </form>
     </div>
-    <div id="instructions">
-        <p>Press D to rotate CCW, A to rotate CW, and W/S to zoom in/out.</p>
-    </div>
-    <button type="button" id="P_cam">Perspective</button>
-    <button type="button" id="O_cam">Orthographic</button>
     <div id="animation">
         <div id="container"></div>
     </div>
+    <table id="opts_table">
+        <tr>
+            <th>Camera Type</th>
+        </tr>
+        <tr>
+            <td>
+                <button type="button" id="P_cam">Perspective</button>
+                <button type="button" id="O_cam">Orthographic</button>
+            </td>
+        </tr>
+        <tr>
+            <th>Camera Controls <br /> (Translational)</th>
+        </tr>
+        <tr>
+            <td>
+                Step:
+                <input type="number" id="step_input" value="4">
+                kpc / frame
+            </td>
+        </tr>
+        <tr>
+            <td>A: -x</td>
+            <td>D: +x</td>
+        </tr>
+        <tr>
+            <td>S: -y</td>
+            <td>W: +y</td>
+        </tr>
+        <tr>
+            <td>F: -z</td>
+            <td>R: +z</td>
+        </tr>
+        <tr>
+            <td>
+                <button type="button" class="reset" id="reset_cam">Reset Camera</button>
+            </td>
+        </tr>
+        <tr>
+            <th>Particle Controls <br /> (Rotational)</th>
+        </tr>
+        <tr>
+            <td>
+                Rotation:
+                <input type="number" id="rot_input" value="0.075">
+                rad / frame
+            </td>
+        </tr>
+        <tr>
+            <td>J: CCW about z</td>
+            <td>L: CW about z</td>
+        </tr>
+        <tr>
+            <td>I: CCW about x</td>
+            <td>K: CW about x</td>
+        </tr>
+        <tr>
+            <td>
+                <button type="button" class="reset" id="reset_rot">Reset Particles</button>
+            </td>
+        </tr>
+        <tr>
+            <th>Toggle</th>
+        </tr>
+        <tr>
+            <td>
+                <input type="checkbox" id="display_grid"> Grid<br />
+                <input type="checkbox" id="display_axes"> Axes<br>
+            </td>
+        </tr>
+    </table>
     <script type="text/javascript" src='js/intro_script.js'></script>
 </body>
 </html>
