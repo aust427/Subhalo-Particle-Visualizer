@@ -1,13 +1,13 @@
 const WIDTH = window.innerHeight * 4 / 5;
 const HEIGHT = WIDTH;
- 
+
 const VIEW_ANGLE = 45;
 const ASPECT = WIDTH / HEIGHT;
 const NEAR = 1;
 const FAR = 10000;
 
 var scene, renderer, container, camera, controls;
-    
+
 var particle_JSON;
 
 var t_particles;
@@ -22,50 +22,50 @@ var tog = false;
 
 var frustum = new THREE.Frustum();
 
-var id = null; 
+var id = null;
 
 var gradient = [
-    [0.00, [251,  98,  84]],
-    [7.88, [255, 163,  80]],
-    [11.4, [255, 243, 151]],
-    [20.9, [254, 255, 208]],
-    [62.6, [248, 247, 252]], 
-    [94.4, [154, 175, 255]]
+  [0.00, [251, 98, 84]],
+  [7.88, [255, 163, 80]],
+  [11.4, [255, 243, 151]],
+  [20.9, [254, 255, 208]],
+  [62.6, [248, 247, 252]],
+  [94.4, [154, 175, 255]]
 ];
 
 function PyJSON(parts) {
-	$.ajax({
-        type: 'POST',
-        url: "http://127.0.0.1:5000/particle_JSON",
-        data: JSON.stringify(parts),
-        dataType: 'json',
-        contentType: 'application/json; charset=UTF-8',
-        success: function(data){
-            console.log(data);
-            particle_JSON = data;
-            init_scene();
-        }
-    });
-	// stop link reloading the page
-    event.preventDefault();
+  $.ajax({
+    type: 'POST',
+    url: "http://127.0.0.1:5000/particle_JSON",
+    data: JSON.stringify(parts),
+    dataType: 'json',
+    contentType: 'application/json; charset=UTF-8',
+    success: function (data) {
+      console.log(data);
+      particle_JSON = data;
+      init_scene();
+    }
+  });
+  // stop link reloading the page
+  event.preventDefault();
 }
 
 // https://stackoverflow.com/questions/5384712/capture-a-form-submit-in-javascript
 function processForm(e) {
-    if (e.preventDefault) e.preventDefault();
-    snapNum = document.forms.snapHaloForm.snapshot.value;
-    subHaloNum = document.forms.snapHaloForm.subhalo.value;
-    
-    if ((snapNum) && (subHaloNum)){
-        var pyJSON = {
-            "snapshot": snapNum+'',
-            "subhalo": subHaloNum+''
-        };
-        PyJSON(pyJSON);
-        document.getElementById("container").innerHTML = "";
-    }
-    
-    return false;
+  if (e.preventDefault) e.preventDefault();
+  snapNum = document.forms.snapHaloForm.snapshot.value;
+  subHaloNum = document.forms.snapHaloForm.subhalo.value;
+
+  if ((snapNum) && (subHaloNum)) {
+    var pyJSON = {
+      "snapshot": snapNum + '',
+      "subhalo": subHaloNum + ''
+    };
+    PyJSON(pyJSON);
+    document.getElementById("container").innerHTML = "";
+  }
+
+  return false;
 }
 
 //https://2pha.com/blog/threejs-easy-round-circular-particles/
@@ -78,7 +78,7 @@ function createCanvasMaterial(color, size) {
   // Draw a circle
   var center = size / 2;
   matContext.beginPath();
-  matContext.arc(center, center, size/2, 0, 2 * Math.PI, false);
+  matContext.arc(center, center, size / 2, 0, 2 * Math.PI, false);
   matContext.closePath();
   matContext.fillStyle = color;
   matContext.fill();
@@ -89,146 +89,146 @@ function createCanvasMaterial(color, size) {
 }
 
 // binary search for finding the range for star colors
-function colorRange(T, low, high, i){
-    if ((T > low[0])&&(T < high[0])){
-        return [low, high];
-    }
-    if (T < low[0]){
-        return colorRange(T, gradient[i-2], gradient[i-1], i-2);
-    }
-    if (T > high[0]){
-        return colorRange(T, gradient[i+1], gradient[i+2], i-2);
-    }
-} 
-
-// calculate distance ratio for star color and return combination
-function colorCalc(T){
-    var range_T = colorRange(T, gradient[2], gradient[3], 2);
-    
-    var lb_x = range_T[0][0];
-    var lb_rgb = range_T[0][1];
-    
-    var hb_x = range_T[1][0];
-    var hb_rgb = range_T[1][1];
-    
-    var d_lb = T - lb_x;
-    var d_hb = hb_x - T;
-    
-    var tot_dist = hb_x - lb_x;
-    
-    var set = [];
-    
-    for (var i = 0; i < 3; i++){
-        set.push(lb_rgb[i] * (1 - d_lb / tot_dist) + hb_rgb[i] * (1 - d_hb / tot_dist) );
-    }
-    
-    var rT = [T, set];
-    return(rT);
+function colorRange(T, low, high, i) {
+  if ((T > low[0]) && (T < high[0])) {
+    return [low, high];
+  }
+  if (T < low[0]) {
+    return colorRange(T, gradient[i - 2], gradient[i - 1], i - 2);
+  }
+  if (T > high[0]) {
+    return colorRange(T, gradient[i + 1], gradient[i + 2], i - 2);
+  }
 }
 
-function createParticles(){
-    var geometry = new THREE.BufferGeometry();
-    var rgb;
-    var positions = [];
-    var colors = [];
-    var color = new THREE.Color();
+// calculate distance ratio for star color and return combination
+function colorCalc(T) {
+  var range_T = colorRange(T, gradient[2], gradient[3], 2);
 
-    var radius = 1000;
-    var angle = 0;
-    
-    particleCount = particle_JSON['count'];
-    
-    for (var p = 0; p < particleCount; p++){
-        // positions
-        var pX = particle_JSON['pos-x'][p];
-        var pY = particle_JSON['pos-y'][p];
-        var pZ = particle_JSON['pos-z'][p];
-        
-        positions.push(pX, pY, pZ);
-        
-        // colors
-        rgb = colorCalc(particle_JSON['T'][p]);
-        
-        var r = rgb[1][0] / 255; 
-        var g = rgb[1][1] / 255; 
-        var b = rgb[1][2] / 255;
-        colors.push(r, g, b);
-    }
-    
-    geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions,3));
-    geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors,3));
-    geometry.computeBoundingSphere();
-    
-    mat = createCanvasMaterial('#FFFFFF', 256);
-    
-    var pMaterial = new THREE.PointsMaterial({
-        size: 3,
-        map: mat,
-        vertexColors: THREE.VertexColors,
-        blending: THREE.AdditiveBlending,
-        alphaTest: 0.3
-    });    
-    
-    points = new THREE.Points(geometry, pMaterial); 
-   // points.frustumCulled = false;
-    scene.add(points);
+  var lb_x = range_T[0][0];
+  var lb_rgb = range_T[0][1];
+
+  var hb_x = range_T[1][0];
+  var hb_rgb = range_T[1][1];
+
+  var d_lb = T - lb_x;
+  var d_hb = hb_x - T;
+
+  var tot_dist = hb_x - lb_x;
+
+  var set = [];
+
+  for (var i = 0; i < 3; i++) {
+    set.push(lb_rgb[i] * (1 - d_lb / tot_dist) + hb_rgb[i] * (1 - d_hb / tot_dist));
+  }
+
+  var rT = [T, set];
+  return (rT);
+}
+
+function createParticles() {
+  var geometry = new THREE.BufferGeometry();
+  var rgb;
+  var positions = [];
+  var colors = [];
+  var color = new THREE.Color();
+
+  var radius = 1000;
+  var angle = 0;
+
+  particleCount = particle_JSON['count'];
+
+  for (var p = 0; p < particleCount; p++) {
+    // positions
+    var pX = particle_JSON['pos-x'][p];
+    var pY = particle_JSON['pos-y'][p];
+    var pZ = particle_JSON['pos-z'][p];
+
+    positions.push(pX, pY, pZ);
+
+    // colors
+    rgb = colorCalc(particle_JSON['T'][p]);
+
+    var r = rgb[1][0] / 255;
+    var g = rgb[1][1] / 255;
+    var b = rgb[1][2] / 255;
+    colors.push(r, g, b);
+  }
+
+  geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeBoundingSphere();
+
+  mat = createCanvasMaterial('#FFFFFF', 256);
+
+  var pMaterial = new THREE.PointsMaterial({
+    size: 3,
+    map: mat,
+    vertexColors: THREE.VertexColors,
+    blending: THREE.AdditiveBlending,
+    alphaTest: 0.3
+  });
+
+  points = new THREE.Points(geometry, pMaterial);
+  // points.frustumCulled = false;
+  scene.add(points);
 }
 
 function init_scene() {
-    if (id !== null) {
-      cancelAnimationFrame(id);
-    }
+  if (id !== null) {
+    cancelAnimationFrame(id);
+  }
 
-    // Container
-    container = document.querySelector('#container');
-        
-    // Camera
-    camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
-    camera.position.x = 0;
-    camera.position.y = 0;
-    camera.position.z = 1000;
-    
-    camera.frustumCulled = false;
-    
-    // Renderer
-    renderer = new THREE.WebGLRenderer();
-    renderer.setSize(WIDTH, HEIGHT);
-    renderer.domElement.id = 'render';
-        
-    // Scene
-    scene = new THREE.Scene();
-    scene.add(camera);
-    createParticles();
-    
-    container.appendChild(renderer.domElement);
-    
-    document.onkeydown = handleKeyDown;
-    document.onkeyup = handleKeyUp;
-    
-    updateFrustrum();
-    
-    requestAnimationFrame(update);
-    
-    document.getElementById("container").style.width = document.getElementById("render").style.width;
-    
-   // getPoints(points.geometry.attributes.position.array);
-   // document.getElementById("chart").style.width = document.getElementById("render").style.width;
+  // Container
+  container = document.querySelector('#container');
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+  camera.position.x = 0;
+  camera.position.y = 0;
+  camera.position.z = 1000;
+
+  camera.frustumCulled = false;
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(WIDTH, HEIGHT);
+  renderer.domElement.id = 'render';
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.add(camera);
+  createParticles();
+
+  container.appendChild(renderer.domElement);
+
+  document.onkeydown = handleKeyDown;
+  document.onkeyup = handleKeyUp;
+
+  updateFrustrum();
+
+  requestAnimationFrame(update);
+
+  document.getElementById("container").style.width = document.getElementById("render").style.width;
+
+  // getPoints(points.geometry.attributes.position.array);
+  // document.getElementById("chart").style.width = document.getElementById("render").style.width;
 }
 
-function updateFrustrum(){    
-    camera.updateMatrix(); // make sure camera's local matrix is updated
-    camera.updateMatrixWorld(); // make sure camera's world matrix is updated
-    camera.matrixWorldInverse.getInverse( camera.matrixWorld );
+function updateFrustrum() {
+  camera.updateMatrix(); // make sure camera's local matrix is updated
+  camera.updateMatrixWorld(); // make sure camera's world matrix is updated
+  camera.matrixWorldInverse.getInverse(camera.matrixWorld);
 
-    frustum.setFromMatrix( new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse ) );
+  frustum.setFromMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
 }
 
 function handleKeyDown(event) {
-    currentlyPressedKey[event.keyCode] = true;
+  currentlyPressedKey[event.keyCode] = true;
 }
 
 function handleKeyUp(event) {
-    currentlyPressedKey[event.keyCode] = false;
+  currentlyPressedKey[event.keyCode] = false;
 }
 
 function renderChart(data, gX, gY) {
@@ -298,76 +298,76 @@ function renderChart(data, gX, gY) {
   $("svg").css({ top: 80, left: WIDTH + 20, position: 'absolute' });
 }
 
-function makeBins(x, y, box, w, h, heat_p){
-    let bin = {
-        id: '' + x + y,
-        upperLeft: [],
-        lowerRight: [],
-        points: [],
-        pointCount: 0
+function makeBins(x, y, box, w, h, heat_p) {
+  let bin = {
+    id: '' + x + y,
+    upperLeft: [],
+    lowerRight: [],
+    points: [],
+    pointCount: 0
+  }
+
+  bin.upperLeft[0] = (x * w) - Math.abs(box[0][0]);
+  bin.upperLeft[1] = (y * h) - Math.abs(box[0][1]);
+
+  bin.lowerRight[0] = bin.upperLeft[0] + w;
+  bin.lowerRight[1] = bin.upperLeft[1] + h;
+
+  // to fix: this will currently count points twice if they fall on a datum's bbox edge
+  heat_p.forEach(function (p) {
+    if (p[0] >= bin.upperLeft[0] && p[0] <= bin.lowerRight[0] && p[1] >= bin.upperLeft[1] && p[1] <= bin.lowerRight[1]) {
+      bin.pointCount += 1;
+      bin.points.push(p);
     }
-    
-    bin.upperLeft[0] = (x*w) - Math.abs(box[0][0]);
-    bin.upperLeft[1] = (y*h) - Math.abs(box[0][1]);
-    
-    bin.lowerRight[0] = bin.upperLeft[0] + w;
-    bin.lowerRight[1] = bin.upperLeft[1] + h;
-    
-    // to fix: this will currently count points twice if they fall on a datum's bbox edge
-    heat_p.forEach(function(p) {
-        if (p[0] >= bin.upperLeft[0] && p[0] <= bin.lowerRight[0] && p[1] >= bin.upperLeft[1] && p[1] <= bin.lowerRight[1]) {
-            bin.pointCount += 1;
-            bin.points.push(p);
-        }
-    });
-    
-    return bin;
+  });
+
+  return bin;
 }
 
-function makeGrid(box, heat_p){
-    var gridX = 40;
-    var gridY = 40;
-    
-    var width = Math.abs(box[0][0] - box[1][0]) / gridX; 
-    var height = Math.abs(box[0][1] - box[1][1]) / gridY;
-    
-    var bins = [];
-    
-    for (let i = 0; i < gridX; i++){
-        for (let j = 0; j < gridY; j++){
-            const b = makeBins(i, j, box, width, height, heat_p);
-            bins.push(b);
-        }
+function makeGrid(box, heat_p) {
+  var gridX = 40;
+  var gridY = 40;
+
+  var width = Math.abs(box[0][0] - box[1][0]) / gridX;
+  var height = Math.abs(box[0][1] - box[1][1]) / gridY;
+
+  var bins = [];
+
+  for (let i = 0; i < gridX; i++) {
+    for (let j = 0; j < gridY; j++) {
+      const b = makeBins(i, j, box, width, height, heat_p);
+      bins.push(b);
     }
-    
-    renderChart(bins, gridX, gridY);
+  }
+
+  renderChart(bins, gridX, gridY);
 }
 
-function getPoints(arr){
-    var h_points = [];
-    
-    var minX = 0;
-    var maxX = 0;
-    
-    var minY = 0;
-    var maxY = 0; 
-    
-    for (let i = 0; i < particleCount; i++){
-        var t = new THREE.Vector3(arr[3*i], arr[3*i+1], arr[3*i+2]);
-        if (frustum.containsPoint(t)){
-            h_points.push([arr[3*i], arr[3*i+1]]);
-            
-            if (arr[3*i] > maxX){maxX = arr[3*i];}
-            if (arr[3*i] < minX){minX = arr[3*i];}
-            
-            if (arr[3*i+1] > maxY){maxY = arr[3*i+1];}
-            if (arr[3*i+1] < minY){minY = arr[3*i+1];}
-        }
+function getPoints(arr) {
+  var h_points = [];
+
+  var minX = 0;
+  var maxX = 0;
+
+  var minY = 0;
+  var maxY = 0;
+
+  for (let i = 0; i < particleCount; i++) {
+    var t = new THREE.Vector3(arr[3 * i], arr[3 * i + 1], arr[3 * i + 2]);
+    if (frustum.containsPoint(t)) {
+      h_points.push([arr[3 * i], arr[3 * i + 1]]);
+
+      if (arr[3 * i] > maxX) { maxX = arr[3 * i]; }
+      if (arr[3 * i] < minX) { minX = arr[3 * i]; }
+
+      if (arr[3 * i + 1] > maxY) { maxY = arr[3 * i + 1]; }
+      if (arr[3 * i + 1] < minY) { minY = arr[3 * i + 1]; }
     }
-    
-    var bbox = [[Math.floor(minX), Math.floor(minY)],[Math.ceil(maxX), Math.ceil(maxY)]];
-    
-    makeGrid(bbox, h_points);
+  }
+
+  var bbox = [[Math.floor(minX), Math.floor(minY)], [Math.ceil(maxX), Math.ceil(maxY)]];
+
+  makeGrid(bbox, h_points);
 }
 
 function particleUpdate() {
@@ -422,26 +422,26 @@ function update() {
   particleUpdate();
   cameraUpdate();
 
-    if (currentlyPressedKey[32]){
-     //   d3.select("svg").remove();
-     //   getPoints(points.geometry.attributes.position.array);
-    }
+  if (currentlyPressedKey[32]) {
+    //   d3.select("svg").remove();
+    //   getPoints(points.geometry.attributes.position.array);
+  }
   //camera.updateProjectionMatrix();
 
-    updateFrustrum();
-   // console.log(frustum);
-    
-    renderer.render(scene, camera);
+  updateFrustrum();
+  // console.log(frustum);
 
-    id = requestAnimationFrame(update);
+  renderer.render(scene, camera);
+
+  id = requestAnimationFrame(update);
 }
 
-function init(){
-    if (form.attachEvent) {
-        form.attachEvent("submit", processForm);
-    } else {
-        form.addEventListener("submit", processForm);
-    }
+function init() {
+  if (form.attachEvent) {
+    form.attachEvent("submit", processForm);
+  } else {
+    form.addEventListener("submit", processForm);
+  }
 }
 
 $(document).ready(function () {
