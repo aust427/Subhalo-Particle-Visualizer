@@ -1,16 +1,12 @@
-const WIDTH = 1000;
-const HEIGHT = 1000;
+const WIDTH = window.innerHeight * 4 / 5;
+const HEIGHT = WIDTH;
  
 const VIEW_ANGLE = 45;
 const ASPECT = WIDTH / HEIGHT;
 const NEAR = 1;
 const FAR = 10000;
 
-var radius = 1000;
-var angle = 0;
-
 var scene, renderer, container, camera, controls;
-var scene2, renderer2, container2, camera2, axes;
     
 var particle_JSON;
 
@@ -22,7 +18,11 @@ var form = document.getElementById('snapHaloForm');
 
 var currentlyPressedKey = {};
 
+var tog = false;
+
 var frustum = new THREE.Frustum();
+
+var id = null; 
 
 var gradient = [
     [0.00, [251,  98,  84]],
@@ -63,7 +63,6 @@ function processForm(e) {
         };
         PyJSON(pyJSON);
         document.getElementById("container").innerHTML = "";
-        document.getElementById("inset").innerHTML = "";
     }
     
     return false;
@@ -127,12 +126,15 @@ function colorCalc(T){
     return(rT);
 }
 
-function createParticlesBetter(){
+function createParticles(){
     var geometry = new THREE.BufferGeometry();
     var rgb;
     var positions = [];
     var colors = [];
     var color = new THREE.Color();
+
+    var radius = 1000;
+    var angle = 0;
     
     particleCount = particle_JSON['count'];
     
@@ -172,59 +174,53 @@ function createParticlesBetter(){
     scene.add(points);
 }
 
-function init_scene(){
+function init_scene() {
+    if (id !== null) {
+      cancelAnimationFrame(id);
+    }
+
     // Container
     container = document.querySelector('#container');
-    
-    radius = 1000;
-    angle = 0;
-    
+        
     // Camera
-    camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR,FAR);
+    camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
     camera.position.x = 0;
     camera.position.y = 0;
-    camera.position.z = radius;
+    camera.position.z = 1000;
     
     camera.frustumCulled = false;
-
+    
     // Renderer
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(WIDTH, HEIGHT);
-    
-   // controls = new THREE.OrbitControls(camera, renderer.domElement);
-    
+    renderer.domElement.id = 'render';
+        
     // Scene
     scene = new THREE.Scene();
     scene.add(camera);
-    createParticlesBetter();
-    
-    // https://stackoverflow.com/questions/16226693/three-js-show-world-coordinate-axes-in-corner-of-scene
-    // dom
-    container2 = document.getElementById('inset');
-
-    // renderer
-    renderer2 = new THREE.WebGLRenderer();
-    renderer2.setClearColor( 0xf0f0f0, 1 );
-    renderer2.setSize( 100, 100 );
-    container2.appendChild( renderer2.domElement );
-
-    // scene
-    scene2 = new THREE.Scene();
-
-    // camera
-    camera2 = new THREE.PerspectiveCamera( 50, 100 / 100, 1, 1000 );
-    camera2.up = camera.up; // important!
-
-    // axes
-    axes = new THREE.AxesHelper( 100 );
-    scene2.add( axes );
+    createParticles();
     
     container.appendChild(renderer.domElement);
     
     document.onkeydown = handleKeyDown;
     document.onkeyup = handleKeyUp;
     
+    updateFrustrum();
+    
     requestAnimationFrame(update);
+    
+    document.getElementById("container").style.width = document.getElementById("render").style.width;
+    
+   // getPoints(points.geometry.attributes.position.array);
+   // document.getElementById("chart").style.width = document.getElementById("render").style.width;
+}
+
+function updateFrustrum(){    
+    camera.updateMatrix(); // make sure camera's local matrix is updated
+    camera.updateMatrixWorld(); // make sure camera's world matrix is updated
+    camera.matrixWorldInverse.getInverse( camera.matrixWorld );
+
+    frustum.setFromMatrix( new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse ) );
 }
 
 function handleKeyDown(event) {
@@ -235,71 +231,209 @@ function handleKeyUp(event) {
     currentlyPressedKey[event.keyCode] = false;
 }
 
-function getPoints(arr){
-    var ret = [];
-    for (var i = 0; i < particleCount; i++){
-        var t = new THREE.Vector3(arr[3*i], arr[3*i+1], arr[3*i+2]);
-        if (frustum.containsPoint(t)){
-            ret.push(t);
-        }
-    }
-    return(ret);
+function renderChart(data, gX, gY) {
+  const margin = {
+    top: 10,
+    bottom: 20,
+    left: 30,
+    right: 10
+  };
+
+  let w = WIDTH - margin.left - margin.right;
+  let h = HEIGHT - margin.top - margin.bottom;
+
+  const rectWidth = w / gX;
+  const rectHeight = h / gY;
+
+  const x = d3.scaleLinear()
+    .domain([
+      d3.min(data, function (d) { return d.upperLeft[0]; }),
+      d3.max(data, function (d) { return d.lowerRight[0]; })
+    ])
+    .range([0, w]);
+
+  const y = d3.scaleLinear()
+    .domain([
+      d3.min(data, function (d) { return d.upperLeft[1]; }),
+      d3.max(data, function (d) { return d.lowerRight[1]; })
+    ])
+    .range([h, 0]);
+
+  var colorScale = d3.scaleLinear()
+    .domain([0, Math.log(d3.max(data, function (d) { return d.pointCount; }))])
+    .range(["#000000", "#FFFFFF"]);
+
+  const yaxis = d3.axisLeft()
+    .scale(y);
+
+  const xaxis = d3.axisBottom()
+    .scale(x);
+
+  const svg = d3.select('#container').append('svg')
+    .attr('id', 'chart')
+    .attr('width', w + margin.left + margin.right)
+    .attr('height', h + margin.top + margin.bottom)
+    .append('g')
+    .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+  const rects = svg.selectAll('rect')
+    .data(data, function (d) { return d; })
+    .enter().append('rect')
+    .attr('x', function (d, i) {
+      return x(d.upperLeft[0]);
+    })
+    .attr('y', function (d) { return y(d.lowerRight[1]); })
+    .attr('width', function (d) { return rectWidth; })
+    .attr('height', function (d) { return rectHeight; })
+    .attr('fill', function (d) { return colorScale((Math.log(1 + d.pointCount))); })
+    .on('mouseover', function (d) { console.log(d.pointCount); });
+
+  svg.append('g')
+    .call(yaxis);
+
+  svg.append('g')
+    .attr("transform", "translate(0," + h + ")")
+    .call(xaxis);
+
+  $("svg").css({ top: 80, left: WIDTH + 20, position: 'absolute' });
 }
 
-function update () {
-   // points.rotation.y += 0.01;
-    //radius -= 1;
-    //radius = Math.pow((Math.pow(camera.position.x, 2) + Math.pow(camera.position.x, 2) + Math.pow(camera.position.x, 2)), 0.5);
-
-    if(currentlyPressedKey[68]){
-        angle += 0.0075;
-        camera.position.x = radius * Math.sin(angle);
-        camera.position.z = radius * Math.cos(angle);
+function makeBins(x, y, box, w, h, heat_p){
+    let bin = {
+        id: '' + x + y,
+        upperLeft: [],
+        lowerRight: [],
+        points: [],
+        pointCount: 0
     }
     
-    if(currentlyPressedKey[65]){
-        angle -= 0.0075;
-        camera.position.x = radius * Math.sin(angle);
-        camera.position.z = radius * Math.cos(angle);
-    }   
+    bin.upperLeft[0] = (x*w) - Math.abs(box[0][0]);
+    bin.upperLeft[1] = (y*h) - Math.abs(box[0][1]);
     
-    if(currentlyPressedKey[83]){
-        if (radius > 1){
-            radius += 4;
-            camera.position.x = radius * Math.sin(angle);
-            camera.position.z = radius * Math.cos(angle);
+    bin.lowerRight[0] = bin.upperLeft[0] + w;
+    bin.lowerRight[1] = bin.upperLeft[1] + h;
+    
+    // to fix: this will currently count points twice if they fall on a datum's bbox edge
+    heat_p.forEach(function(p) {
+        if (p[0] >= bin.upperLeft[0] && p[0] <= bin.lowerRight[0] && p[1] >= bin.upperLeft[1] && p[1] <= bin.lowerRight[1]) {
+            bin.pointCount += 1;
+            bin.points.push(p);
         }
-    }    
+    });
     
-    if(currentlyPressedKey[87]){
-        if (radius - 4 > 1){
-            radius -= 4;
-            camera.position.x = radius * Math.sin(angle);
-            camera.position.z = radius * Math.cos(angle);
+    return bin;
+}
 
-        }
-    }    
+function makeGrid(box, heat_p){
+    var gridX = 40;
+    var gridY = 40;
     
+    var width = Math.abs(box[0][0] - box[1][0]) / gridX; 
+    var height = Math.abs(box[0][1] - box[1][1]) / gridY;
+    
+    var bins = [];
+    
+    for (let i = 0; i < gridX; i++){
+        for (let j = 0; j < gridY; j++){
+            const b = makeBins(i, j, box, width, height, heat_p);
+            bins.push(b);
+        }
+    }
+    
+    renderChart(bins, gridX, gridY);
+}
+
+function getPoints(arr){
+    var h_points = [];
+    
+    var minX = 0;
+    var maxX = 0;
+    
+    var minY = 0;
+    var maxY = 0; 
+    
+    for (let i = 0; i < particleCount; i++){
+        var t = new THREE.Vector3(arr[3*i], arr[3*i+1], arr[3*i+2]);
+        if (frustum.containsPoint(t)){
+            h_points.push([arr[3*i], arr[3*i+1]]);
+            
+            if (arr[3*i] > maxX){maxX = arr[3*i];}
+            if (arr[3*i] < minX){minX = arr[3*i];}
+            
+            if (arr[3*i+1] > maxY){maxY = arr[3*i+1];}
+            if (arr[3*i+1] < minY){minY = arr[3*i+1];}
+        }
+    }
+    
+    var bbox = [[Math.floor(minX), Math.floor(minY)],[Math.ceil(maxX), Math.ceil(maxY)]];
+    
+    makeGrid(bbox, h_points);
+}
+
+function particleUpdate() {
+  var angle = 0.0075;
+
+  if (currentlyPressedKey[74]) {
+    points.rotation.y += angle;
+  }
+
+  if (currentlyPressedKey[76]) {
+    points.rotation.y -= angle;
+  }
+
+  if (currentlyPressedKey[73]) {
+    points.rotation.x += angle;
+  }
+
+  if (currentlyPressedKey[75]) {
+    points.rotation.x -= angle;
+  }
+}
+
+function cameraUpdate() {
+  var dist = 4;
+
+  if (currentlyPressedKey[83]) {
+    camera.position.z += dist;
+  }
+
+  if (currentlyPressedKey[87]) {
+    camera.position.z -= dist;
+  }
+
+  if (currentlyPressedKey[68]) {
+    camera.position.x += dist;
+  }
+
+  if (currentlyPressedKey[65]) {
+    camera.position.x -= dist;
+  }
+
+  if (currentlyPressedKey[82]) {
+    camera.position.y += dist;
+  }
+
+  if (currentlyPressedKey[70]) {
+    camera.position.y -= dist;
+  }
+}
+
+function update() {
+  particleUpdate();
+  cameraUpdate();
+
     if (currentlyPressedKey[32]){
-           getPoints(points.geometry.attributes.position.array);
+     //   d3.select("svg").remove();
+     //   getPoints(points.geometry.attributes.position.array);
     }
+  //camera.updateProjectionMatrix();
 
-    camera.lookAt(new THREE.Vector3(0,0,0)); // Set look at coordinate like this
-    
-    camera.updateMatrix(); // make sure camera's local matrix is updated
-    camera.updateMatrixWorld(); // make sure camera's world matrix is updated
-    camera.matrixWorldInverse.getInverse( camera.matrixWorld );
-
-    frustum.setFromMatrix( new THREE.Matrix4().multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse ) );
+    updateFrustrum();
+   // console.log(frustum);
     
     renderer.render(scene, camera);
-    renderer2.render(scene2, camera2);
-    
-    camera2.position.copy( camera.position );
-	camera2.position.setLength( 300 );
-    camera2.lookAt( scene2.position );
-    
-    requestAnimationFrame(update);
+
+    id = requestAnimationFrame(update);
 }
 
 function init(){
@@ -310,4 +444,25 @@ function init(){
     }
 }
 
-init();
+$(document).ready(function () {
+  init();
+  $("#P_cam").click(function () {
+    var camera_p = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+    camera_p.position.x = camera.position.x;
+    camera_p.position.y = camera.position.y;
+    camera_p.position.z = camera.position.z;
+
+    camera = camera_p;
+
+    console.log(camera);
+
+  });
+  $("#O_cam").click(function () {
+    var viewSize = 1000;
+    camera_o = new THREE.OrthographicCamera(-ASPECT * viewSize / 2, ASPECT * viewSize / 2, viewSize / 2, -viewSize / 2, -camera.position.z, FAR);
+    camera_o.position.x = camera.position.x;
+    camera_o.position.y = camera.position.y;
+    camera_o.position.z = camera.position.z;
+    camera = camera_o;
+  });
+});

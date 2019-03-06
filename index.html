@@ -1,29 +1,30 @@
-<head>
+﻿<head>
     <meta charset="utf-8">
     <script type="text/javascript" src="js/three.js-master/build/three.min.js"></script>
-    <script type="text/javascript" src="js/d3/d3.min.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
     <script type="text/javascript" src="js/three.js-master/examples/js/controls/OrbitControls.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
     <link rel="stylesheet" type="text/css" href="main.css">
 </head>
 <html>
-    <body>
-        <div id="HaloForm">
-            <form id="snapHaloForm">
-              Snapshot:
-              <input type="text" name="snapshot" value="135">
-              SubHalo:
-              <input type="text" name="subhalo" value="608">
-              <button type="submit">Submit</button>
-            </form> 
-        </div>
-        <div id="instructions">
-            <p>Press D to rotate CCW, A to rotate CW, and W/S to zoom in/out.</p>
-        </div>
-        <div id ="animation">
-            <div id="inset"></div>
-            <div id="container"></div>
-        </div>
-        <script type="text/javascript" src='js/intro_script.js'></script>
-    </body>
+<body>
+    <div id="HaloForm">
+        <form id="snapHaloForm">
+            Snapshot:
+            <input type="text" name="snapshot" value="135">
+            SubHalo:
+            <input type="text" name="subhalo" value="608">
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <div id="instructions">
+        <p>Press D to rotate CCW, A to rotate CW, and W/S to zoom in/out.</p>
+    </div>
+    <button type="button" id="P_cam">Perspective</button>
+    <button type="button" id="O_cam">Orthographic</button>
+    <div id="animation">
+        <div id="container"></div>
+    </div>
+    <script type="text/javascript" src='js/intro_script.js'></script>
+</body>
 </html>
