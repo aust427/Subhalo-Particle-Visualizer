@@ -1,0 +1,9 @@
+
+js/node_modules/
+js/three.js-master/
+js/d3/
+py/venv/
+js/.vs/
+py/.idea/
+py/Illustris-3/
+py/illustris_python/
