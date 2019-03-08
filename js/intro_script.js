@@ -8,11 +8,13 @@ const FAR = 10000;
 
 var scene, renderer, container, camera, controls;
 
-var particle_JSON;
+var star_particle_JSON;
+var gas_particle_JSON;
 
 var t_particles;
 
 var particleCount;
+var gasParticleCount;
 
 var form = document.getElementById('snapHaloForm');
 
@@ -53,8 +55,8 @@ function PyJSON(parts) {
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
-      console.log(data);
-      particle_JSON = data;
+      star_particle_JSON = data['stars'];
+      gas_particle_JSON = data['gas'];
       init_scene();
     }
   });
@@ -149,6 +151,45 @@ function colorCalc(T) {
   return ([T, set]);
 }
 
+function createGas() {
+  console.log(gas_particle_JSON['count']);
+  var geometry = new THREE.BufferGeometry();
+  var positions = [];
+  var colors = [];
+
+  gasParticleCount = gas_particle_JSON['count'];
+
+  for (var p = 0; p < gasParticleCount; p++) {
+    // positions
+    var pX = gas_particle_JSON['pos-x'][p];
+    var pY = gas_particle_JSON['pos-y'][p];
+    var pZ = gas_particle_JSON['pos-z'][p];
+
+    positions.push(pX, pY, pZ);
+    colors.push((58/255), (56/255), (170/255));
+  }
+
+  geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeBoundingSphere();
+
+  mat = createCanvasMaterial('#FFFFFF', 256);
+
+  var pMaterial = new THREE.PointsMaterial({
+    size: 1,
+    map: mat,
+    vertexColors: THREE.VertexColors,
+    blending: THREE.AdditiveBlending,
+    alphaTest: 0.3
+  });
+
+  gasPoints = new THREE.Points(geometry, pMaterial);
+  gasPoints.name = 'gas';
+  // points.frustumCulled = false;
+  scene.add(gasPoints);
+  $('#display_gas')[0].checked = true; 
+}
+
 /** 
  * Summary. Creates particles for the scene. 
  */
@@ -159,18 +200,18 @@ function createParticles() {
   var colors = [];
   var color = new THREE.Color();
 
-  particleCount = particle_JSON['count'];
+  particleCount = star_particle_JSON['count'];
 
   for (var p = 0; p < particleCount; p++) {
     // positions
-    var pX = particle_JSON['pos-x'][p];
-    var pY = particle_JSON['pos-y'][p];
-    var pZ = particle_JSON['pos-z'][p];
+    var pX = star_particle_JSON['pos-x'][p];
+    var pY = star_particle_JSON['pos-y'][p];
+    var pZ = star_particle_JSON['pos-z'][p];
 
     positions.push(pX, pY, pZ);
 
     // colors
-    rgb = colorCalc(particle_JSON['T'][p]);
+    rgb = colorCalc(star_particle_JSON['T'][p]);
 
     var r = rgb[1][0] / 255;
     var g = rgb[1][1] / 255;
@@ -193,9 +234,11 @@ function createParticles() {
   });
 
   points = new THREE.Points(geometry, pMaterial);
-  points.name = 'points';
+  points.name = 'stars';
   // points.frustumCulled = false;
   scene.add(points);
+  createGas();
+  $('#display_stars')[0].checked = true; 
 }
 
 function createGrids() {
@@ -251,7 +294,7 @@ function init_scene() {
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
   camera.position.x = 0;
   camera.position.y = 0;
-  camera.position.z = 750;
+  camera.position.z = 2000;
   camera.name = 'cam'
 
   camera.frustumCulled = false;
@@ -446,22 +489,33 @@ function getPoints(arr) {
 }
 
 function particleUpdate() {
-  if (currentlyPressedKey[74]) points.rotation.y += angle;
-  if (currentlyPressedKey[76]) points.rotation.y -= angle;
-  
-  if (currentlyPressedKey[73]) points.rotation.x += angle;
-  if (currentlyPressedKey[75]) points.rotation.x -= angle;
+  if (currentlyPressedKey[74]) {
+    points.rotation.y += angle;
+    gasPoints.rotation.y += angle;
+  }
+  if (currentlyPressedKey[76]) {
+    points.rotation.y -= angle;
+    gasPoints.rotation.y -= angle;}
+
+  if (currentlyPressedKey[73]) {
+    points.rotation.x += angle;
+    gasPoints.rotation.x += angle;
+  }
+
+  if (currentlyPressedKey[75]) {
+    points.rotation.x -= angle;
+    gasPoints.rotation.x -= angle;}
 }
 
 function cameraUpdate() {
-  if (currentlyPressedKey[83]) camera.position.z += step;
-  if (currentlyPressedKey[87]) camera.position.z -= step;
+  if (currentlyPressedKey[83]) { camera.position.z += step; }
+  if (currentlyPressedKey[87]) { camera.position.z -= step; }
 
-  if (currentlyPressedKey[68]) camera.position.x += step;
-  if (currentlyPressedKey[65]) camera.position.x -= step;
+  if (currentlyPressedKey[68]) { camera.position.x += step; }
+  if (currentlyPressedKey[65]) { camera.position.x -= step; }
  
-  if (currentlyPressedKey[82]) camera.position.y += step;
-  if (currentlyPressedKey[70]) camera.position.y -= step;
+  if (currentlyPressedKey[82]) { camera.position.y += step; }
+  if (currentlyPressedKey[70]) { camera.position.y -= step; }
 }
 
 function update() {
@@ -532,11 +586,21 @@ $(document).ready(function () {
       scene.getObjectByName('grid').visible = !scene.getObjectByName('grid').visible;
     }
   });
+  $('#display_stars').change(function () {
+    if (camera) {
+      scene.getObjectByName('stars').visible = !scene.getObjectByName('stars').visible;
+    }
+  });
+  $('#display_gas').change(function () {
+    if (camera) {
+      scene.getObjectByName('gas').visible = !scene.getObjectByName('gas').visible;
+    }
+  });
   $('#reset_cam').click(function () {
     if (camera) {
       camera.position.x = 0;
       camera.position.y = 0; 
-      camera.position.z = 750;
+      camera.position.z = 2000;
     }
   });
   $('#reset_rot').click(function () {
@@ -557,5 +621,8 @@ $(document).ready(function () {
       scene.getObjectByName('z-pos').visible = axis_flag;
       scene.getObjectByName('z-neg').visible = axis_flag;
     }
+  });
+  $('#rot_input').change(function () {
+    console.log($('#rot_input')[0].valueAsNumber);
   });
 });

@@ -4,7 +4,7 @@ from flask import jsonify
 from flask import request
 
 import json
-
+import random
 import site
 import numpy as np
 
@@ -24,14 +24,20 @@ GroupFirstSub = il.groupcat.loadHalos(basePath,135,fields=['GroupFirstSub'])
 def partJSON(snapNum, subHaloNum):
     dat = il.snapshot.loadSubhalo(basePath, snapNum, subHaloNum, 'stars',
                                   fields=None)
+    dat_gas = il.snapshot.loadSubhalo(basePath, snapNum, subHaloNum, 'gas', fields=None)
+
     stel_mags = dat['GFM_StellarPhotometrics']
 
     B = stel_mags[:, 1]
     V = stel_mags[:, 2]
 
+    T = 4600 * (1 / (0.92 * (B - V) + 1.7) + 1 / (0.92 * (B - V) + 0.62))
+    T = (T - 1850) / 33000 * 100
+
     metals = dat['GFM_Metallicity']
 
     coords = dat['Coordinates']
+    coords_gas = dat_gas['Coordinates']
 
     x_CM = np.mean(coords[:, 0])
     y_CM = np.mean(coords[:, 1])
@@ -39,12 +45,19 @@ def partJSON(snapNum, subHaloNum):
 
     # center our data around orgin
     coords = coords - [x_CM, y_CM, z_CM]
-    T = 4600 * (1 / (0.92 * (B - V) + 1.7) + 1 / (0.92 * (B - V) + 0.62))
-    T = (T - 1850) / 33000 * 100
+    coords_gas = coords_gas - [x_CM, y_CM, z_CM]
 
-    return({"pos-x": coords[:, 0].tolist(), "pos-y": coords[:, 2].tolist(),
-              "pos-z": coords[:, 1].tolist(), "T": T.tolist(),
-              "count": np.shape(coords)[0]})
+    star_data = {"pos-x": coords[:, 0].tolist(),
+                 "pos-y": coords[:, 2].tolist(),
+                 "pos-z": coords[:, 1].tolist(),
+                 "T": T.tolist(), "count": np.shape(coords)[0]}
+
+    gas_data = {"pos-x": coords_gas[:, 0].tolist(),
+                "pos-y": coords_gas[:, 2].tolist(),
+                "pos-z": coords_gas[:, 1].tolist(),
+                "count": np.shape(coords_gas)[0]}
+
+    return({"stars": star_data, "gas": gas_data})
 
 app = Flask(__name__)
 cors = CORS(app)
