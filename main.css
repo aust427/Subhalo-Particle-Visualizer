@@ -1,12 +1,31 @@
-#opts_table{
-    position: absolute;
-}
-
-#step_input, #rot_input{
+#step_input, #rot_input, #bin_num {
     width: 60px;
 }
 
-body{
-   /* color: white; */
-    /*background-color: black;*/
+body {
+    color: white;
+    background-color: black;
+}
+
+#opts_table {
+    position: absolute;
+    width: 300px;
+}
+
+tr {
+    width: 300px;
+    margin-left: 20px;
+}
+
+.tab_cell_left {
+    width: 50%;
+}
+
+.tab_cell_right {
+    width: 50%;
+}
+
+#O_cam {
+    position: absolute;
+    margin-left: 10px;
 }

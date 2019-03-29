@@ -6,21 +6,17 @@ const ASPECT = WIDTH / HEIGHT;
 const NEAR = 1;
 const FAR = 10000;
 
-var scene, renderer, container, camera, controls;
+var viewSize = 1000;
 
-var star_particle_JSON;
-var gas_particle_JSON;
+var scene, renderer, container, camera, camera_o, camera_p, controls;
 
-var t_particles;
-
-var particleCount;
-var gasParticleCount;
+var star_particle_JSON, gas_particle_JSON;
+var particleCount, gasParticleCount;
+var star_init, gas_init;
 
 var form = document.getElementById('snapHaloForm');
 
 var currentlyPressedKey = {};
-
-var tog = false;
 
 var frustum = new THREE.Frustum();
 
@@ -28,6 +24,9 @@ var id = null;
 
 var angle = 0.0075;
 var step = 4;
+
+var gridX = gridY = 20;
+var colMax = 0;
 
 var gradient = [
   [0.00, [251, 98, 84]],
@@ -152,7 +151,6 @@ function colorCalc(T) {
 }
 
 function createGas() {
-  console.log(gas_particle_JSON['count']);
   var geometry = new THREE.BufferGeometry();
   var positions = [];
   var colors = [];
@@ -168,6 +166,8 @@ function createGas() {
     positions.push(pX, pY, pZ);
     colors.push((58/255), (56/255), (170/255));
   }
+
+  gas_init = positions;
 
   geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -218,6 +218,8 @@ function createParticles() {
     var b = rgb[1][2] / 255;
     colors.push(r, g, b);
   }
+
+  star_init = positions; 
 
   geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -286,7 +288,6 @@ function init_scene() {
   if (id !== null) {
     cancelAnimationFrame(id);
   }
-
   // Container
   container = document.querySelector('#container');
 
@@ -294,7 +295,7 @@ function init_scene() {
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
   camera.position.x = 0;
   camera.position.y = 0;
-  camera.position.z = 2000;
+  camera.position.z = 4000;
   camera.name = 'cam'
 
   camera.frustumCulled = false;
@@ -322,18 +323,13 @@ function init_scene() {
 
   document.onkeydown = handleKeyDown;
   document.onkeyup = handleKeyUp;
-
-  updateFrustrum();
-
-  requestAnimationFrame(update);
-
   document.getElementById("container").style.width = document.getElementById("render").style.width;
 
-  // getPoints(points.geometry.attributes.position.array);
-  // document.getElementById("chart").style.width = document.getElementById("render").style.width;
+  requestAnimationFrame(update);
 }
 
 function updateFrustrum() {
+  camera.updateProjectionMatrix();
   camera.updateMatrix(); // make sure camera's local matrix is updated
   camera.updateMatrixWorld(); // make sure camera's world matrix is updated
   camera.matrixWorldInverse.getInverse(camera.matrixWorld);
@@ -349,9 +345,9 @@ function handleKeyUp(event) {
   currentlyPressedKey[event.keyCode] = false;
 }
 
-function renderChart(data, gX, gY) {
+function renderChart(data) {
   const margin = {
-    top: 10,
+    top: 0,
     bottom: 20,
     left: 30,
     right: 10
@@ -360,8 +356,8 @@ function renderChart(data, gX, gY) {
   let w = WIDTH - margin.left - margin.right;
   let h = HEIGHT - margin.top - margin.bottom;
 
-  const rectWidth = w / gX;
-  const rectHeight = h / gY;
+  const rectWidth = w / gridX;
+  const rectHeight = h / gridY;
 
   const x = d3.scaleLinear()
     .domain([
@@ -377,9 +373,14 @@ function renderChart(data, gX, gY) {
     ])
     .range([h, 0]);
 
-  var colorScale = d3.scaleLinear()
-    .domain([0, Math.log(d3.max(data, function (d) { return d.pointCount; }))])
-    .range(["#000000", "#FFFFFF"]);
+  var interpolators = ["Inferno"];
+
+  var max = d3.max(data, function (d) { return d.pointCount; });
+
+  colMax = (max > colMax) ? max : colMax;
+
+  var colorScale = d3.scaleSequential(d3.interpolateInferno)
+    .domain([0, Math.log(colMax)]);
 
   const yaxis = d3.axisLeft()
     .scale(y);
@@ -397,14 +398,15 @@ function renderChart(data, gX, gY) {
   const rects = svg.selectAll('rect')
     .data(data, function (d) { return d; })
     .enter().append('rect')
-    .attr('x', function (d, i) {
-      return x(d.upperLeft[0]);
-    })
+    .attr('x', function (d, i) { return x(d.upperLeft[0]); })
     .attr('y', function (d) { return y(d.lowerRight[1]); })
     .attr('width', function (d) { return rectWidth; })
     .attr('height', function (d) { return rectHeight; })
-    .attr('fill', function (d) { return colorScale((Math.log(1 + d.pointCount))); })
-    .on('mouseover', function (d) { console.log(d.pointCount); });
+    .attr('fill', function (d) { return colorScale(Math.log(1 + d.pointCount)); })
+    .on('mouseover', function (d) {
+      console.log(d.pointCount);
+      console.log(Math.log(1 + d.pointCount));
+  });
 
   svg.append('g')
     .call(yaxis);
@@ -413,7 +415,12 @@ function renderChart(data, gX, gY) {
     .attr("transform", "translate(0," + h + ")")
     .call(xaxis);
 
-  $("svg").css({ top: 80, left: WIDTH + 20, position: 'absolute' });
+  $("svg").css({ top: 80, left: WIDTH + 300, position: 'absolute' });
+
+  d3.selectAll('g.tick')
+    .style('stroke', 'white'); 
+
+  document.getElementById("chart").style.width = document.getElementById("render").style.width;
 }
 
 function makeBins(x, y, box, w, h, heat_p) {
@@ -425,8 +432,8 @@ function makeBins(x, y, box, w, h, heat_p) {
     pointCount: 0
   }
 
-  bin.upperLeft[0] = (x * w) - Math.abs(box[0][0]);
-  bin.upperLeft[1] = (y * h) - Math.abs(box[0][1]);
+  bin.upperLeft[0] = box[0][0] + (x * w);
+  bin.upperLeft[1] = box[0][1] + (y * h);
 
   bin.lowerRight[0] = bin.upperLeft[0] + w;
   bin.lowerRight[1] = bin.upperLeft[1] + h;
@@ -443,9 +450,6 @@ function makeBins(x, y, box, w, h, heat_p) {
 }
 
 function makeGrid(box, heat_p) {
-  var gridX = 40;
-  var gridY = 40;
-
   var width = Math.abs(box[0][0] - box[1][0]) / gridX;
   var height = Math.abs(box[0][1] - box[1][1]) / gridY;
 
@@ -458,10 +462,18 @@ function makeGrid(box, heat_p) {
     }
   }
 
-  renderChart(bins, gridX, gridY);
+  return (bins);
 }
 
-function getPoints(arr) {
+function drawHeatmap() {
+  if (camera.type == "PerspectiveCamera") {
+    return;
+  }
+
+  d3.selectAll("svg").remove();
+  updateFrustrum();
+
+  var arr = points.geometry.attributes.position.array;
   var h_points = [];
 
   var minX = 0;
@@ -472,8 +484,9 @@ function getPoints(arr) {
 
   for (let i = 0; i < particleCount; i++) {
     var t = new THREE.Vector3(arr[3 * i], arr[3 * i + 1], arr[3 * i + 2]);
+    t.applyMatrix4(points.matrix);
     if (frustum.containsPoint(t)) {
-      h_points.push([arr[3 * i], arr[3 * i + 1]]);
+      h_points.push([t.x, t.y]);
 
       if (arr[3 * i] > maxX) maxX = arr[3 * i]; 
       if (arr[3 * i] < minX) minX = arr[3 * i]; 
@@ -483,9 +496,15 @@ function getPoints(arr) {
     }
   }
 
-  var bbox = [[Math.floor(minX), Math.floor(minY)], [Math.ceil(maxX), Math.ceil(maxY)]];
+  var bbox = [];
+  if (camera.type == "PerspectiveCamera") {
+    bbox = [[Math.floor(minX), Math.floor(minY)], [Math.ceil(maxX), Math.ceil(maxY)]];
+  }
+  else {
+    bbox = [[camera.left, camera.bottom], [camera.right, camera.top]];
+  }
 
-  makeGrid(bbox, h_points);
+  renderChart(makeGrid(bbox, h_points));
 }
 
 function particleUpdate() {
@@ -504,39 +523,85 @@ function particleUpdate() {
 
   if (currentlyPressedKey[75]) {
     points.rotation.x -= angle;
-    gasPoints.rotation.x -= angle;}
+    gasPoints.rotation.x -= angle;
+  }
+
+  points.updateMatrixWorld();
+  gasPoints.updateMatrixWorld();
 }
 
 function cameraUpdate() {
-  if (currentlyPressedKey[83]) { camera.position.z += step; }
-  if (currentlyPressedKey[87]) { camera.position.z -= step; }
+  if (currentlyPressedKey[83]) {
+    if (camera.type == "OrthographicCamera") {
+      if ((camera.right - camera.left) > 1) {
+        camera.left -= 1;
+        camera.right += 1;
+        camera.top += 1;
+        camera.bottom -= 1;
+      }
+    }
+    else { camera.position.z += step; }
+  }
+  if (currentlyPressedKey[87]) {
+    if (camera.type == "OrthographicCamera") {
+      if ((camera.right - camera.left) > 2) {
+        camera.left += 1;
+        camera.right -= 1;
+        camera.top -= 1;
+        camera.bottom += 1;
+      }
+    }
+    else { camera.position.z -= step; }
+  }
 
-  if (currentlyPressedKey[68]) { camera.position.x += step; }
-  if (currentlyPressedKey[65]) { camera.position.x -= step; }
- 
-  if (currentlyPressedKey[82]) { camera.position.y += step; }
-  if (currentlyPressedKey[70]) { camera.position.y -= step; }
+  if (currentlyPressedKey[68]) {
+    if (camera.type == "OrthographicCamera") {
+      camera.left += step;
+      camera.right += step;
+    }
+    else { camera.position.x += step; }
+  }
+  if (currentlyPressedKey[65]) {
+    if (camera.type == "OrthographicCamera") {
+      camera.left -= step;
+      camera.right -= step;
+    }
+    else { camera.position.x -= step; }
+  }
+
+  if (currentlyPressedKey[82]) {
+    if (camera.type == "OrthographicCamera") {
+      camera.bottom += step;
+      camera.top += step;
+    }
+    else { camera.position.y += step; }
+  }
+  if (currentlyPressedKey[70]) {
+    if (camera.type == "OrthographicCamera") {
+      camera.bottom -= step;
+      camera.top -= step;
+    }
+    else { camera.position.y -= step; }}
 }
 
 function update() {
   particleUpdate();
   cameraUpdate();
+  points.geometry.verticesNeedUpdate = true; 
 
   if (currentlyPressedKey[32]) {
-    //   d3.select("svg").remove();
-    //   getPoints(points.geometry.attributes.position.array);
+       drawHeatmap();
   }
   //camera.updateProjectionMatrix();
 
   updateFrustrum();
-  // console.log(frustum);
 
   renderer.render(scene, camera);
 
   id = requestAnimationFrame(update);
 }
 
-function init_blank() {
+function init() {
   container = document.querySelector('#container');
 
   renderer = new THREE.WebGLRenderer();
@@ -545,40 +610,39 @@ function init_blank() {
 
   scene = new THREE.Scene();
   container.appendChild(renderer.domElement);
-}
 
-function init() {
+  tablePosition();
+
   if (form.attachEvent) {
     form.attachEvent("submit", processForm);
   } else {
     form.addEventListener("submit", processForm);
   }
-  tablePosition();
 }
 
 $(document).ready(function () {
   init();
-  init_blank();
- 
+
   $("#P_cam").click(function () {
     if (camera) {
-      var camera_p = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+      camera_p = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
       camera_p.position.x = camera.position.x;
       camera_p.position.y = camera.position.y;
       camera_p.position.z = camera.position.z;
 
       camera = camera_p;
+      d3.selectAll("svg").remove();
     }
   });
   $("#O_cam").click(function () {
     if (camera) {
-      var viewSize = 1000;
       camera_o = new THREE.OrthographicCamera(-ASPECT * viewSize / 2, ASPECT * viewSize / 2, viewSize / 2, -viewSize / 2, -camera.position.z, FAR);
       camera_o.position.x = camera.position.x;
       camera_o.position.y = camera.position.y;
       camera_o.position.z = camera.position.z;
 
       camera = camera_o;
+      drawHeatmap();
     }
   });
   $('#display_grid').change(function () {
@@ -597,17 +661,31 @@ $(document).ready(function () {
     }
   });
   $('#reset_cam').click(function () {
-    if (camera) {
+    if (camera.type == 'PerspectiveCamera') {
       camera.position.x = 0;
       camera.position.y = 0; 
-      camera.position.z = 2000;
+      camera.position.z = 4000;
+    }
+    else {
+      camera.left = -ASPECT * viewSize / 2;
+      camera.right = ASPECT * viewSize / 2;
+      camera.top = viewSize / 2;
+      camera.bottom = -viewSize / 2;
+
+      drawHeatmap();
     }
   });
   $('#reset_rot').click(function () {
     if (camera) {
-      scene.getObjectByName('points').rotation.x = 0;
-      scene.getObjectByName('points').rotation.y = 0;
-      scene.getObjectByName('points').rotation.z = 0;
+      scene.getObjectByName('stars').rotation.x = 0;
+      scene.getObjectByName('stars').rotation.y = 0;
+      scene.getObjectByName('stars').rotation.z = 0;
+
+      scene.getObjectByName('gas').rotation.x = 0;
+      scene.getObjectByName('gas').rotation.y = 0;
+      scene.getObjectByName('gas').rotation.z = 0;
+
+      drawHeatmap();
     }
   })
   $('#display_axes').change(function () {
@@ -623,6 +701,16 @@ $(document).ready(function () {
     }
   });
   $('#rot_input').change(function () {
-    console.log($('#rot_input')[0].valueAsNumber);
+    angle = ($('#rot_input')[0].valueAsNumber);
+  });
+  $('#bin_num').change(function () {
+    if (camera) {
+      gridX = ($('#bin_num')[0].valueAsNumber);
+      gridY = gridX;
+      drawHeatmap();
+    }
+  });
+  $('#step_input').change(function () {
+    step = ($('#step_input')[0].valueAsNumber);
   });
 });

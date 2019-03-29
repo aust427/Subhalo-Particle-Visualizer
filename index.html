@@ -22,7 +22,7 @@
     </div>
     <table id="opts_table">
         <tr>
-            <th>Camera Type</th>
+            <th class="tab_cell_head">Camera Type</th>
         </tr>
         <tr>
             <td>
@@ -31,7 +31,7 @@
             </td>
         </tr>
         <tr>
-            <th>Camera Controls <br /> (Translational)</th>
+            <th class="tab_cell_head">Camera Controls <br /> (Translational)</th>
         </tr>
         <tr>
             <td>
@@ -41,16 +41,16 @@
             </td>
         </tr>
         <tr>
-            <td>A: -x</td>
-            <td>D: +x</td>
+            <td class="tab_cell_left">A: -x</td>
+            <td class="tab_cell_right">D: +x</td>
         </tr>
         <tr>
-            <td>S: -y</td>
-            <td>W: +y</td>
+            <td class="tab_cell_left">S: -y</td>
+            <td class="tab_cell_right">W: +y</td>
         </tr>
         <tr>
-            <td>F: -z</td>
-            <td>R: +z</td>
+            <td class="tab_cell_left">F: -z</td>
+            <td class="tab_cell_right">R: +z</td>
         </tr>
         <tr>
             <td>
@@ -58,7 +58,7 @@
             </td>
         </tr>
         <tr>
-            <th>Particle Controls <br /> (Rotational)</th>
+            <th class="tab_cell_head">Particle Controls <br /> (Rotational)</th>
         </tr>
         <tr>
             <td>
@@ -68,12 +68,12 @@
             </td>
         </tr>
         <tr>
-            <td>J: CCW about z</td>
-            <td>L: CW about z</td>
+            <td class="tab_cell_left">J: CCW about z</td>
+            <td class="tab_cell_right">L: CW about z</td>
         </tr>
         <tr>
-            <td>I: CCW about x</td>
-            <td>K: CW about x</td>
+            <td class="tab_cell_left">I: CCW about x</td>
+            <td class="tab_cell_right">K: CW about x</td>
         </tr>
         <tr>
             <td>
@@ -81,7 +81,7 @@
             </td>
         </tr>
         <tr>
-            <th>Toggle</th>
+            <th class="tab_cell_head">Toggle Displays</th>
         </tr>
         <tr>
             <td>
@@ -89,6 +89,15 @@
                 <input type="checkbox" id="display_axes"> Axes<br>
                 <input type="checkbox" id="display_stars"> Stars<br>
                 <input type="checkbox" id="display_gas"> Gas<br>
+            </td>
+        </tr>
+        <tr>
+            <th class="tab_cell_head">Heatmap</th>
+        </tr>
+        <tr>
+            <td>
+                <input type="number" id="bin_num" value="20">
+                bins
             </td>
         </tr>
     </table>
