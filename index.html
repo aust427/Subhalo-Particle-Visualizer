@@ -6,10 +6,39 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
     <link rel="stylesheet" type="text/css" href="main.css">
 </head>
+
+<script type="x-shader/xvertex" id="vertexShader">
+    attribute float size;
+    varying vec3 vColor;
+    void main(){
+        vColor = vec3(1.0, 1.0, 1.0);
+        vec4 mvPosition = modelViewMatrix * vec4(vec3(position), 1.0);
+
+        gl_PointSize = size / length (mvPosition.xyz);
+        gl_Position = projectionMatrix * mvPosition;
+    }
+</script>
+
+<script type="x-shader/x-fragment" id="fragmentShader">
+    uniform sampler2D texture;
+    varying vec3 vColor;
+    void main()
+    {
+        gl_FragColor = vec4(vColor, 1.0);
+        gl_FragColor = gl_FragColor * texture2D(texture, gl_PointCoord);
+    }
+</script>
+
 <html>
 <body>
     <div id="HaloForm">
         <form id="snapHaloForm">
+            Simulation:
+            <select name="simulation">
+                <option value="illustris">Illustris</option>
+                <option value="illustristng">IllustrisTNG</option>
+                <option value="scsam">SC-SAM</option>
+            </select>
             Snapshot:
             <input type="text" name="snapshot" value="135">
             SubHalo:
@@ -98,6 +127,39 @@
             <td>
                 <input type="number" id="bin_num" value="20">
                 bins
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Field:
+                <select id="heatmapField">
+                    <option value="{'type': 'star', 'field': 'NumDen'}">Star Count</option>
+                    <option value="{'type': 'star', 'field': 'GFM_InitialMass'}">Initial Mass (GFM)</option>
+                    <option value="{'type': 'star', 'field': 'GFM_Metallicity'}">Metallicity (GFM)</option>
+                    <option value="{'type': 'star', 'field': 'GFM_StellarFormationTime'}">Stellar Form. Time</option>
+                    <option value="{'type': 'star', 'field': 'Masses'}">Mass</option>
+                    <option value="{'type': 'star', 'field': 'Potential'}">Potential</option>
+                    <option value="{'type': 'star', 'field': 'SubfindDensity'}">Density (Subfind)</option>
+                    <option value="{'type': 'star', 'field': 'SubfindHsml'}">Hsml (Subfind)</option>
+                    <option value="{'type': 'star', 'field': 'SubfindVelDisp'}">Vel. Disp. (Subfind)</option>
+                    <option value="{'type': 'gas', 'field': 'NumDen'}">Gas Count</option>
+                    <option value="{'type': 'gas', 'field': 'ElectronAbundance'}">Electron Abundance</option>
+                    <option value="{'type': 'gas', 'field': 'GFM_AGNRadiation'}">AGN Radiation (GFM)</option>
+                    <option value="{'type': 'gas', 'field': 'GFM_CoolingRate'}">Cooling Rate (GFM)</option>
+                    <option value="{'type': 'gas', 'field': 'GFM_Metallicity'}">Metallicity (GFM)</option>
+                    <option value="{'type': 'gas', 'field': 'GFM_WindDMVelDisp'}">Wind/DM Vel. Disp.</option>
+                    <option value="{'type': 'gas', 'field': 'InternalEnergy'}">Internal Energy</option>
+                    <option value="{'type': 'gas', 'field': 'Masses'}">Masses</option>
+                    <option value="{'type': 'gas', 'field': 'NeutralHydrogenAbundance'}">Neutral H Abund.</option>
+                    <option value="{'type': 'gas', 'field': 'NumTracers'}">Num. Tracers</option>
+                    <option value="{'type': 'gas', 'field': 'Potential'}">Potential</option>
+                    <option value="{'type': 'gas', 'field': 'SmoothingLength'}">Smoothing Length</option>
+                    <option value="{'type': 'gas', 'field': 'StarFormationRate'}">SFR</option>
+                    <option value="{'type': 'gas', 'field': 'SubfindDensity'}">Density (Subfind)</option>
+                    <option value="{'type': 'gas', 'field': 'SubfindHsml'}">Hhsml (Subfind)</option>
+                    <option value="{'type': 'gas', 'field': 'SubfindVelDisp'}">Vel. Disp (Subfind)</option>
+                    <option value="{'type': 'gas', 'field': 'Volume'}">Volume</option>
+                </select>
             </td>
         </tr>
     </table>

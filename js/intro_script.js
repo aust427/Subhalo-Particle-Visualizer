@@ -10,11 +10,12 @@ var viewSize = 1000;
 
 var scene, renderer, container, camera, camera_o, camera_p, controls;
 
-var star_particle_JSON, gas_particle_JSON;
+var star_particle_JSON, gas_particle_JSON, heatmap_JSON;
 var particleCount, gasParticleCount;
-var star_init, gas_init;
+var heatmapField= 'NumDen';
 
 var form = document.getElementById('snapHaloForm');
+var simul;
 
 var currentlyPressedKey = {};
 
@@ -27,6 +28,18 @@ var step = 4;
 
 var gridX = gridY = 20;
 var colMax = 0;
+
+var heatmapOptions = {
+  "type": 'star',
+  "field": 'NumDen'
+};
+
+var yhelium = 0.0789;
+var Gamma_Minus_1 = 2 / 3;
+var ProtonMass = 1.6726 * Math.pow(10, -24);
+var Boltzmann = 1.3807 * Math.pow(10, -16);
+
+var path = 'http://'+'10.128.145.141' + ':5000'
 
 var gradient = [
   [0.00, [251, 98, 84]],
@@ -46,17 +59,35 @@ function tablePosition() {
   d.style.top = pos.top;
 }
 
+function heatmapJSON(json) {
+  $.ajax({
+    type: 'POST',
+    url: path + "/heatmap_JSON",
+    data: JSON.stringify(json),
+    dataType: 'json',
+    contentType: 'application/json; charset=UTF-8',
+    success: function (data) {
+      heatmap_JSON = data;
+      drawHeatmap(json);
+    }
+  });
+  // stop link reloading the page
+  event.preventDefault();
+}
+
 function PyJSON(parts) {
   $.ajax({
     type: 'POST',
-    url: "http://127.0.0.1:5000/particle_JSON",
+    url: path + "/particle_JSON",
     data: JSON.stringify(parts),
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
-      star_particle_JSON = data['stars'];
-      gas_particle_JSON = data['gas'];
-      init_scene();
+      if (parts.simulation == 'illustris' || parts.simulation == 'illustrisTNG'){
+        star_particle_JSON = data['stars'];
+        gas_particle_JSON = data['gas'];
+      }
+      init_scene(data);
     }
   });
   // stop link reloading the page
@@ -66,11 +97,14 @@ function PyJSON(parts) {
 // https://stackoverflow.com/questions/5384712/capture-a-form-submit-in-javascript
 function processForm(e) {
   if (e.preventDefault) e.preventDefault();
+
+  simul = document.forms.snapHaloForm.simulation.value;
   snapNum = document.forms.snapHaloForm.snapshot.value;
   subHaloNum = document.forms.snapHaloForm.subhalo.value;
 
   if ((snapNum) && (subHaloNum)) {
     var pyJSON = {
+      "simulation": simul + '',
       "snapshot": snapNum + '',
       "subhalo": subHaloNum + ''
     };
@@ -154,8 +188,13 @@ function createGas() {
   var geometry = new THREE.BufferGeometry();
   var positions = [];
   var colors = [];
+  var T = [];
 
   gasParticleCount = gas_particle_JSON['count'];
+
+  min = Math.pow(10, 10);
+  max = 1;
+  avg = 0;
 
   for (var p = 0; p < gasParticleCount; p++) {
     // positions
@@ -163,11 +202,14 @@ function createGas() {
     var pY = gas_particle_JSON['pos-y'][p];
     var pZ = gas_particle_JSON['pos-z'][p];
 
-    positions.push(pX, pY, pZ);
-    colors.push((58/255), (56/255), (170/255));
-  }
+    var u = gas_particle_JSON['int-eng'][p];
+    var nelec = gas_particle_JSON['nelec'][p];
+    var T_calc = Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec);
 
-  gas_init = positions;
+    positions.push(pX, pY, pZ);
+    colors.push((58 / 255), (56 / 255), (170 / 255));
+    T.push(T_calc);
+  }
 
   geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -219,8 +261,6 @@ function createParticles() {
     colors.push(r, g, b);
   }
 
-  star_init = positions; 
-
   geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geometry.computeBoundingSphere();
@@ -241,6 +281,70 @@ function createParticles() {
   scene.add(points);
   createGas();
   $('#display_stars')[0].checked = true; 
+}
+
+function init_sam(pos, shape) {
+  var positions = [];
+  var radiiBulge = [];
+  var radiiDisk = [];
+
+  var rgb;
+  var colors = [];
+  var color = new THREE.Color();
+
+  particleCount = 99136;
+
+  for (var p = 0; p < particleCount; p++) {
+    var ra = pos['pos-x'][p] - 150.13226;
+    var dec = pos['pos-y'][p] - 2.3211206;
+    var z_redshift = pos['pos-z'][p];
+
+    var a = 100;
+
+    pX = a*z_redshift * Math.cos(dec) * Math.cos(ra);
+    pY = a*z_redshift * Math.cos(dec) * Math.sin(ra);
+    pZ = a*z_redshift * Math.sin(dec);
+    positions.push(pX, pY, pZ);
+
+    radiiBulge.push(shape['r_bulge'][p] * a / 10);
+    radiiDisk.push(shape['r_disk'][p] * a / 10);
+
+    colors.push((255 / 255), (255 / 255), (255 / 255));
+  }
+
+ // mat = createCanvasMaterial('#FFFFFF', 256);
+
+  var uniforms = {
+    texture: { type: "t", value: createCanvasMaterial('#FFFFFF', 256) }
+  }
+
+  var shaderMaterial = new THREE.ShaderMaterial({
+      uniforms: uniforms,
+      vertexShader: document.getElementById('vertexShader').textContent,
+    fragmentShader: document.getElementById('fragmentShader').textContent,
+      transparent: true,
+      alphaTest: 0.5, 
+      blending: THREE.AdditiveBlending
+    }
+  );
+
+  var geometryBulge = new THREE.BufferGeometry();
+  geometryBulge.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometryBulge.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometryBulge.addAttribute('size', new THREE.Float32BufferAttribute(radiiBulge, 1));
+  geometryBulge.computeBoundingSphere();
+  bulges = new THREE.Points(geometryBulge, shaderMaterial);
+  bulges.name = 'bulges';
+  scene.add(bulges);
+
+  var geometryDisk = new THREE.BufferGeometry();
+  geometryDisk.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometryDisk.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometryDisk.addAttribute('size', new THREE.Float32BufferAttribute(radiiDisk, 1));
+  geometryDisk.computeBoundingSphere();
+  disks = new THREE.Points(geometryDisk, shaderMaterial);
+  disks.name = 'disks';
+  scene.add(disks);
 }
 
 function createGrids() {
@@ -283,7 +387,7 @@ function createAxes(vec, positive, line_col, axis) {
   scene.add(line);
 }
 
-function init_scene() {
+function init_scene(dat) {
   // Check to see if scene already exists, prevents initialization bug
   if (id !== null) {
     cancelAnimationFrame(id);
@@ -293,9 +397,16 @@ function init_scene() {
 
   // Camera
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
-  camera.position.x = 0;
-  camera.position.y = 0;
-  camera.position.z = 4000;
+  if (simul != 'scsam') {
+    camera.position.x = 0;
+    camera.position.y = 0;
+    camera.position.z = 4000;
+  }
+  else {
+    camera.position.x = 0;
+    camera.position.y = 0;
+    camera.position.z = 5;
+  }
   camera.name = 'cam'
 
   camera.frustumCulled = false;
@@ -310,7 +421,13 @@ function init_scene() {
   scene.add(camera);
 
   // Add items to scene 
-  createParticles();
+  if (simul == 'scsam') {
+    init_sam(dat['positions'], dat['size']);
+    step = 0.1;
+  }
+  else {
+    createParticles();
+  }
   createGrids();
   createAxes(new THREE.Vector3(1000000, 0, 0), true, 0x0000ff, 'x');
   createAxes(new THREE.Vector3(0, 1000000, 0), true, 0x00ff00, 'z');
@@ -375,12 +492,17 @@ function renderChart(data) {
 
   var interpolators = ["Inferno"];
 
+  var min = d3.min(data, function (d) { return d.pointCount; });
   var max = d3.max(data, function (d) { return d.pointCount; });
 
-  colMax = (max > colMax) ? max : colMax;
 
-  var colorScale = d3.scaleSequential(d3.interpolateInferno)
-    .domain([0, Math.log(colMax)]);
+  console.log(min);
+  console.log(max);
+  console.log(Math.log(min));
+  console.log(Math.log(max));
+
+  var linColorScale = d3.scaleSequential(d3.interpolateInferno)
+    .domain([min, max]);
 
   const yaxis = d3.axisLeft()
     .scale(y);
@@ -402,7 +524,7 @@ function renderChart(data) {
     .attr('y', function (d) { return y(d.lowerRight[1]); })
     .attr('width', function (d) { return rectWidth; })
     .attr('height', function (d) { return rectHeight; })
-    .attr('fill', function (d) { return colorScale(Math.log(1 + d.pointCount)); })
+    .attr('fill', function (d) { return linColorScale(d.pointCount); })
     .on('mouseover', function (d) {
       console.log(d.pointCount);
       console.log(Math.log(1 + d.pointCount));
@@ -423,7 +545,7 @@ function renderChart(data) {
   document.getElementById("chart").style.width = document.getElementById("render").style.width;
 }
 
-function makeBins(x, y, box, w, h, heat_p) {
+function makeBins(x, y, box, w, h, heat_p, heat_v) {
   let bin = {
     id: '' + x + y,
     upperLeft: [],
@@ -438,18 +560,25 @@ function makeBins(x, y, box, w, h, heat_p) {
   bin.lowerRight[0] = bin.upperLeft[0] + w;
   bin.lowerRight[1] = bin.upperLeft[1] + h;
 
+  var i = 0; 
+
   // to fix: this will currently count points twice if they fall on a datum's bbox edge
   heat_p.forEach(function (p) {
     if (p[0] >= bin.upperLeft[0] && p[0] <= bin.lowerRight[0] && p[1] >= bin.upperLeft[1] && p[1] <= bin.lowerRight[1]) {
-      bin.pointCount += 1;
+      if (heat_v.length > 0)
+        bin.pointCount += 1 * heat_v[i];
+      else
+        bin.pointCount += 1;
+
       bin.points.push(p);
+      i++; 
     }
   });
 
   return bin;
 }
 
-function makeGrid(box, heat_p) {
+function makeGrid(box, heat_p, heat_v) {
   var width = Math.abs(box[0][0] - box[1][0]) / gridX;
   var height = Math.abs(box[0][1] - box[1][1]) / gridY;
 
@@ -457,7 +586,7 @@ function makeGrid(box, heat_p) {
 
   for (let i = 0; i < gridX; i++) {
     for (let j = 0; j < gridY; j++) {
-      const b = makeBins(i, j, box, width, height, heat_p);
+      const b = makeBins(i, j, box, width, height, heat_p, heat_v);
       bins.push(b);
     }
   }
@@ -465,16 +594,18 @@ function makeGrid(box, heat_p) {
   return (bins);
 }
 
-function drawHeatmap() {
+function drawHeatmap(hjson) {
   if (camera.type == "PerspectiveCamera") {
     return;
   }
-
+  console.log(hjson);
   d3.selectAll("svg").remove();
   updateFrustrum();
 
-  var arr = points.geometry.attributes.position.array;
+  var arr, mat;
+
   var h_points = [];
+  var h_val = [];
 
   var minX = 0;
   var maxX = 0;
@@ -482,11 +613,26 @@ function drawHeatmap() {
   var minY = 0;
   var maxY = 0;
 
-  for (let i = 0; i < particleCount; i++) {
+  var count = 0; 
+
+  if (hjson['type'] == 'star') {
+    count = particleCount;
+    arr = points.geometry.attributes.position.array;
+    mat = points.matrix;
+  }
+  else {
+    count = gasParticleCount;
+    arr = gasPoints.geometry.attributes.position.array;
+    mat = gasPoints.matrix;
+  }
+
+  for (let i = 0; i < count; i++) {
     var t = new THREE.Vector3(arr[3 * i], arr[3 * i + 1], arr[3 * i + 2]);
-    t.applyMatrix4(points.matrix);
+    t.applyMatrix4(mat);
     if (frustum.containsPoint(t)) {
       h_points.push([t.x, t.y]);
+      if (hjson['field'] != 'NumDen')
+        h_val.push(heatmap_JSON[hjson['field']][i]);
 
       if (arr[3 * i] > maxX) maxX = arr[3 * i]; 
       if (arr[3 * i] < minX) minX = arr[3 * i]; 
@@ -504,7 +650,7 @@ function drawHeatmap() {
     bbox = [[camera.left, camera.bottom], [camera.right, camera.top]];
   }
 
-  renderChart(makeGrid(bbox, h_points));
+  renderChart(makeGrid(bbox, h_points, h_val));
 }
 
 function particleUpdate() {
@@ -585,12 +731,14 @@ function cameraUpdate() {
 }
 
 function update() {
-  particleUpdate();
+  if (simul != 'scsam') {
+    particleUpdate();
+    points.geometry.verticesNeedUpdate = true; 
+  }
   cameraUpdate();
-  points.geometry.verticesNeedUpdate = true; 
 
   if (currentlyPressedKey[32]) {
-       drawHeatmap();
+       drawHeatmap(heatmapOptions);
   }
   //camera.updateProjectionMatrix();
 
@@ -642,7 +790,7 @@ $(document).ready(function () {
       camera_o.position.z = camera.position.z;
 
       camera = camera_o;
-      drawHeatmap();
+      drawHeatmap(heatmapOptions);
     }
   });
   $('#display_grid').change(function () {
@@ -672,7 +820,7 @@ $(document).ready(function () {
       camera.top = viewSize / 2;
       camera.bottom = -viewSize / 2;
 
-      drawHeatmap();
+      drawHeatmap(heatmapOptions);
     }
   });
   $('#reset_rot').click(function () {
@@ -685,7 +833,7 @@ $(document).ready(function () {
       scene.getObjectByName('gas').rotation.y = 0;
       scene.getObjectByName('gas').rotation.z = 0;
 
-      drawHeatmap();
+      drawHeatmap(heatmapOptions);
     }
   })
   $('#display_axes').change(function () {
@@ -707,10 +855,21 @@ $(document).ready(function () {
     if (camera) {
       gridX = ($('#bin_num')[0].valueAsNumber);
       gridY = gridX;
-      drawHeatmap();
+      drawHeatmap(heatmapOptions);
     }
   });
   $('#step_input').change(function () {
     step = ($('#step_input')[0].valueAsNumber);
+  });
+  $('#heatmapField').change(function () {
+    if ((camera) && camera.type == 'OrthographicCamera') {
+      var val = $('#heatmapField').val();
+      heatmapOptions = $.parseJSON(val.replace(/'/g, '"'));
+
+      if (heatmapOptions["field"] == "NumDen")
+        drawHeatmap(heatmapOptions);
+      else
+        heatmapJSON(heatmapOptions);
+    }
   });
 });
