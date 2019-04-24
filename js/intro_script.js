@@ -11,7 +11,7 @@ var viewSize = 1000;
 var scene, renderer, container, camera, camera_o, camera_p, controls;
 
 var star_particle_JSON, gas_particle_JSON, heatmap_JSON;
-var particleCount, gasParticleCount;
+var starPoints, gasPoints;
 var heatmapField= 'NumDen';
 
 var form = document.getElementById('snapHaloForm');
@@ -29,6 +29,16 @@ var step = 4;
 var gridX = gridY = 20;
 var colMax = 0;
 
+mat = createCanvasMaterial('#FFFFFF', 256);
+
+var pMaterial = new THREE.PointsMaterial({
+  size: 1,
+  map: mat,
+  vertexColors: THREE.VertexColors,
+  blending: THREE.AdditiveBlending,
+  alphaTest: 0.3
+});
+
 var heatmapOptions = {
   "type": 'star',
   "field": 'NumDen'
@@ -40,15 +50,6 @@ var ProtonMass = 1.6726 * Math.pow(10, -24);
 var Boltzmann = 1.3807 * Math.pow(10, -16);
 
 var path = 'http://'+'10.128.145.141' + ':5000'
-
-var gradient = [
-  [0.00, [251, 98, 84]],
-  [7.88, [255, 163, 80]],
-  [11.4, [255, 243, 151]],
-  [20.9, [254, 255, 208]],
-  [62.6, [248, 247, 252]],
-  [94.4, [154, 175, 255]]
-];
 
 function tablePosition() {
   var p = $("#container");
@@ -71,7 +72,6 @@ function heatmapJSON(json) {
       drawHeatmap(json);
     }
   });
-  // stop link reloading the page
   event.preventDefault();
 }
 
@@ -90,7 +90,6 @@ function PyJSON(parts) {
       init_scene(data);
     }
   });
-  // stop link reloading the page
   event.preventDefault();
 }
 
@@ -137,42 +136,22 @@ function createCanvasMaterial(color, size) {
 
 
 /**
- * Summary. Binary search for finding the range for star colors
- * 
- * @param {any} T
- * @param {any} low
- * @param {any} high
- * @param {any} i
- */
-function colorRange(T, low, high, i) {
-  if ((T > low[0]) && (T < high[0])) return [low, high];
-
-  if (T < low[0]) return colorRange(T, gradient[i - 2], gradient[i - 1], i - 2);
-  if (T > high[0]) return colorRange(T, gradient[i + 1], gradient[i + 2], i - 2);
-}
-
-
-/**
  * Summary. calculate distance ratio for star color and returns combination
  * 
  * @param {any} T         
  * 
  * @return {any} [T, set] 
  */
-function colorCalc(T) {
-  var range_T = colorRange(T, gradient[2], gradient[3], 2);
+function colorCalc(p) {
+  var lb_x = 0;
+  var lb_rgb = [1, 0, 0];
 
-  // lower bound 
-  var lb_x = range_T[0][0];
-  var lb_rgb = range_T[0][1];
-
-  // higher bound
-  var hb_x = range_T[1][0];
-  var hb_rgb = range_T[1][1];
+  var hb_x = 1;
+  var hb_rgb = [0, 0, 1];
 
   // distance calculator between lower and higher bound
-  var d_lb = T - lb_x;
-  var d_hb = hb_x - T;
+  var d_lb = p - lb_x;
+  var d_hb = hb_x - p;
   var tot_dist = hb_x - lb_x;
 
   var set = [];
@@ -181,171 +160,44 @@ function colorCalc(T) {
     set.push(lb_rgb[i] * (1 - d_lb / tot_dist) + hb_rgb[i] * (1 - d_hb / tot_dist));
   }
 
-  return ([T, set]);
+  return (set);
 }
 
-function createGas() {
+   // var u = gas_particle_JSON['int-eng'][p];
+  //  var nelec = gas_particle_JSON['nelec'][p];
+// var T_calc = Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec);
+
+function createParticles(particleJSON, type) {
   var geometry = new THREE.BufferGeometry();
   var positions = [];
   var colors = [];
-  var T = [];
 
-  gasParticleCount = gas_particle_JSON['count'];
+  $('#display_' + type)[0].checked = true; 
 
-  min = Math.pow(10, 10);
-  max = 1;
-  avg = 0;
+  var pCount = particleJSON['count'];
 
-  for (var p = 0; p < gasParticleCount; p++) {
-    // positions
-    var pX = gas_particle_JSON['pos-x'][p];
-    var pY = gas_particle_JSON['pos-y'][p];
-    var pZ = gas_particle_JSON['pos-z'][p];
-
-    var u = gas_particle_JSON['int-eng'][p];
-    var nelec = gas_particle_JSON['nelec'][p];
-    var T_calc = Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec);
+  for (var p = 0; p < pCount; p++) {
+    var pX = particleJSON['pos-x'][p];
+    var pY = particleJSON['pos-y'][p];
+    var pZ = particleJSON['pos-z'][p];
 
     positions.push(pX, pY, pZ);
-    colors.push((58 / 255), (56 / 255), (170 / 255));
-    T.push(T_calc);
+    if (type == 'gas')
+      colors.push((58 / 255), (56 / 255), (170 / 255));
+    else
+      colors.push((255 / 255), (255 / 255), (0 / 255));
   }
 
   geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geometry.computeBoundingSphere();
-
-  mat = createCanvasMaterial('#FFFFFF', 256);
-
-  var pMaterial = new THREE.PointsMaterial({
-    size: 1,
-    map: mat,
-    vertexColors: THREE.VertexColors,
-    blending: THREE.AdditiveBlending,
-    alphaTest: 0.3
-  });
-
-  gasPoints = new THREE.Points(geometry, pMaterial);
-  gasPoints.name = 'gas';
-  // points.frustumCulled = false;
-  scene.add(gasPoints);
-  $('#display_gas')[0].checked = true; 
-}
-
-/** 
- * Summary. Creates particles for the scene. 
- */
-function createParticles() {
-  var geometry = new THREE.BufferGeometry();
-  var rgb;
-  var positions = [];
-  var colors = [];
-  var color = new THREE.Color();
-
-  particleCount = star_particle_JSON['count'];
-
-  for (var p = 0; p < particleCount; p++) {
-    // positions
-    var pX = star_particle_JSON['pos-x'][p];
-    var pY = star_particle_JSON['pos-y'][p];
-    var pZ = star_particle_JSON['pos-z'][p];
-
-    positions.push(pX, pY, pZ);
-
-    // colors
-    rgb = colorCalc(star_particle_JSON['T'][p]);
-
-    var r = rgb[1][0] / 255;
-    var g = rgb[1][1] / 255;
-    var b = rgb[1][2] / 255;
-    colors.push(r, g, b);
-  }
-
-  geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.computeBoundingSphere();
-
-  mat = createCanvasMaterial('#FFFFFF', 256);
-
-  var pMaterial = new THREE.PointsMaterial({
-    size: 3,
-    map: mat,
-    vertexColors: THREE.VertexColors,
-    blending: THREE.AdditiveBlending,
-    alphaTest: 0.3
-  });
 
   points = new THREE.Points(geometry, pMaterial);
-  points.name = 'stars';
-  // points.frustumCulled = false;
+  points.name = type;
   scene.add(points);
-  createGas();
-  $('#display_stars')[0].checked = true; 
+  return (points);
 }
 
-function init_sam(pos, shape) {
-  var positions = [];
-  var radiiBulge = [];
-  var radiiDisk = [];
-
-  var rgb;
-  var colors = [];
-  var color = new THREE.Color();
-
-  particleCount = 99136;
-
-  for (var p = 0; p < particleCount; p++) {
-    var ra = pos['pos-x'][p] - 150.13226;
-    var dec = pos['pos-y'][p] - 2.3211206;
-    var z_redshift = pos['pos-z'][p];
-
-    var a = 100;
-
-    pX = a*z_redshift * Math.cos(dec) * Math.cos(ra);
-    pY = a*z_redshift * Math.cos(dec) * Math.sin(ra);
-    pZ = a*z_redshift * Math.sin(dec);
-    positions.push(pX, pY, pZ);
-
-    radiiBulge.push(shape['r_bulge'][p] * a / 10);
-    radiiDisk.push(shape['r_disk'][p] * a / 10);
-
-    colors.push((255 / 255), (255 / 255), (255 / 255));
-  }
-
- // mat = createCanvasMaterial('#FFFFFF', 256);
-
-  var uniforms = {
-    texture: { type: "t", value: createCanvasMaterial('#FFFFFF', 256) }
-  }
-
-  var shaderMaterial = new THREE.ShaderMaterial({
-      uniforms: uniforms,
-      vertexShader: document.getElementById('vertexShader').textContent,
-    fragmentShader: document.getElementById('fragmentShader').textContent,
-      transparent: true,
-      alphaTest: 0.5, 
-      blending: THREE.AdditiveBlending
-    }
-  );
-
-  var geometryBulge = new THREE.BufferGeometry();
-  geometryBulge.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometryBulge.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometryBulge.addAttribute('size', new THREE.Float32BufferAttribute(radiiBulge, 1));
-  geometryBulge.computeBoundingSphere();
-  bulges = new THREE.Points(geometryBulge, shaderMaterial);
-  bulges.name = 'bulges';
-  scene.add(bulges);
-
-  var geometryDisk = new THREE.BufferGeometry();
-  geometryDisk.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometryDisk.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometryDisk.addAttribute('size', new THREE.Float32BufferAttribute(radiiDisk, 1));
-  geometryDisk.computeBoundingSphere();
-  disks = new THREE.Points(geometryDisk, shaderMaterial);
-  disks.name = 'disks';
-  scene.add(disks);
-}
 
 function createGrids() {
   var size = 10000;
@@ -368,11 +220,10 @@ function createGrids() {
 function createAxes(vec, positive, line_col, axis) {
   var line_material = null;
 
-  // postive - solid line, negative - dashed line 
-  if (positive) {
+  if (positive) { //solid line
     line_material = new THREE.LineBasicMaterial({ color: line_col });
     createAxes(new THREE.Vector3(vec.x * -1, vec.y * -1, vec.z * -1), false, line_col, axis);
-  } else {
+  } else { //negative line
     line_material = new THREE.LineDashedMaterial({ color: line_col, dashSize: 4, gapSize: 4, linewidth: 2 });
   }
 
@@ -388,50 +239,33 @@ function createAxes(vec, positive, line_col, axis) {
 }
 
 function init_scene(dat) {
-  // Check to see if scene already exists, prevents initialization bug
   if (id !== null) {
     cancelAnimationFrame(id);
   }
-  // Container
+
   container = document.querySelector('#container');
 
-  // Camera
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
-  if (simul != 'scsam') {
-    camera.position.x = 0;
-    camera.position.y = 0;
-    camera.position.z = 4000;
-  }
-  else {
-    camera.position.x = 0;
-    camera.position.y = 0;
-    camera.position.z = 5;
-  }
-  camera.name = 'cam'
-
+  camera.position.x = 0;
+  camera.position.y = 0;
+  camera.position.z = 4000;
+  camera.name = 'cam';
   camera.frustumCulled = false;
 
-  // Renderer
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(WIDTH, HEIGHT);
   renderer.domElement.id = 'render';
 
-  // Scene
   scene = new THREE.Scene();
   scene.add(camera);
 
-  // Add items to scene 
-  if (simul == 'scsam') {
-    init_sam(dat['positions'], dat['size']);
-    step = 0.1;
-  }
-  else {
-    createParticles();
-  }
-  createGrids();
   createAxes(new THREE.Vector3(1000000, 0, 0), true, 0x0000ff, 'x');
   createAxes(new THREE.Vector3(0, 1000000, 0), true, 0x00ff00, 'z');
   createAxes(new THREE.Vector3(0, 0, -1000000), true, 0xff0000, 'y');
+  createGrids();
+
+  gasPoints = createParticles(gas_particle_JSON, 'gas');
+  starPoints = createParticles(star_particle_JSON, 'stars');
 
   $('#display_grid')[0].checked = true; 
   $('#display_axes')[0].checked = true; 
@@ -616,12 +450,12 @@ function drawHeatmap(hjson) {
   var count = 0; 
 
   if (hjson['type'] == 'star') {
-    count = particleCount;
-    arr = points.geometry.attributes.position.array;
-    mat = points.matrix;
+    count = star_particle_JSON['count'];
+    arr = starPoints.geometry.attributes.position.array;
+    mat = starPoints.matrix;
   }
   else {
-    count = gasParticleCount;
+    count = gas_particle_JSON['count'];
     arr = gasPoints.geometry.attributes.position.array;
     mat = gasPoints.matrix;
   }
@@ -655,24 +489,24 @@ function drawHeatmap(hjson) {
 
 function particleUpdate() {
   if (currentlyPressedKey[74]) {
-    points.rotation.y += angle;
+    starPoints.rotation.y += angle;
     gasPoints.rotation.y += angle;
   }
   if (currentlyPressedKey[76]) {
-    points.rotation.y -= angle;
+    starPoints.rotation.y -= angle;
     gasPoints.rotation.y -= angle;}
 
   if (currentlyPressedKey[73]) {
-    points.rotation.x += angle;
+    starPoints.rotation.x += angle;
     gasPoints.rotation.x += angle;
   }
 
   if (currentlyPressedKey[75]) {
-    points.rotation.x -= angle;
+    starPoints.rotation.x -= angle;
     gasPoints.rotation.x -= angle;
   }
 
-  points.updateMatrixWorld();
+  starPoints.updateMatrixWorld();
   gasPoints.updateMatrixWorld();
 }
 
@@ -731,16 +565,13 @@ function cameraUpdate() {
 }
 
 function update() {
-  if (simul != 'scsam') {
-    particleUpdate();
-    points.geometry.verticesNeedUpdate = true; 
-  }
+  particleUpdate();
+  starPoints.geometry.verticesNeedUpdate = true; 
   cameraUpdate();
 
   if (currentlyPressedKey[32]) {
        drawHeatmap(heatmapOptions);
   }
-  //camera.updateProjectionMatrix();
 
   updateFrustrum();
 
