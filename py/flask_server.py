@@ -24,12 +24,12 @@ subhalos = il.groupcat.loadSubhalos(basePath,135,fields=fields)
 GroupFirstSub = il.groupcat.loadHalos(basePath,135,fields=['GroupFirstSub'])
 
 
-def samJSON(field, realization):
+def samJSON(f, r, zl, zh):
     print('scsam')
     scsam = fi_astrosims.client.Simulation("scsam", host="http://astrosims.flatironinstitute.org")
     q = scsam.query(fields = ["redshift","ra","dec","r_disk","rbulge"],
-                    field = "0", realization = "0",
-                    redshift = (0, 1))
+                    field = f, realization = r,
+                    redshift = (zl, zh))
     dat = q.numpy()
 
     position_data = {"pos-x": dat['ra'].tolist(),
@@ -39,7 +39,8 @@ def samJSON(field, realization):
     size_data = {"r_bulge": dat['rbulge'].tolist(),
                  "r_disk": dat['r_disk'].tolist()}
 
-    return {"positions": position_data, "size": size_data}
+    return {"positions": position_data, "size": size_data,
+            "count": np.shape(dat['ra'])[0]}
 
 
 def heatmapJSON(field, type):
@@ -105,7 +106,11 @@ def output():
     data = json.loads(data)
     print(data)
     if data['simulation'] == 'scsam':
-        return jsonify(samJSON('cosmos', 0))
+        field = int(float(data['field']))
+        real = int(float(data['realization']))
+        z_l = float(data['z_l'])
+        z_h = float(data['z_h'])
+        return jsonify(samJSON(field, real, z_l, z_h))
 
     global snapN
     snapN = int(float(data['snapshot']))

@@ -1,0 +1,68 @@
+﻿<head>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="js/three.js-master/build/three.min.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script type="text/javascript" src="js/three.js-master/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="main.css">
+</head>
+<script type="x-shader/xvertex" id="vertexShader">
+    attribute float size;
+    attribute vec3 color;
+    varying vec3 vColor;
+    void main(){
+        vColor = color;
+        vec4 mvPosition = modelViewMatrix * vec4(vec3(position), 1.0);
+
+        gl_PointSize = size / length (mvPosition.xyz);
+        gl_Position = projectionMatrix * mvPosition;
+    }
+</script>
+<script type="x-shader/x-fragment" id="fragmentShader">
+    uniform sampler2D texture;
+    varying vec3 vColor;
+    void main() {
+        gl_FragColor = vec4(vColor, 1.0);
+        gl_FragColor = gl_FragColor * texture2D(texture, gl_PointCoord);
+    }
+</script>
+<html>
+<body>
+    <div id="HaloForm">
+        <form id="simulForm">
+            Simulation:
+            <select name="simulation">
+                <option value="scsam">SC-SAM</option>
+            </select>
+            Field:
+            <select name="field">
+                <option value="0">COSMOS</option>
+                <option value="1">EGS</option>
+                <option value="2">GOODS-N</option>
+                <option value="3">GOODS-S</option>
+                <option value="4">UDS</option>
+            </select>
+            Realization:
+            <select name="realization">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+            </select>
+            Redshift (z):
+            <input type="text" name="redshift_low" value="0">
+            - 
+            <input type="text" name="redshift_high" value="1">
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <div id="animation">
+        <div id="container"></div>
+    </div>
+    <script type="text/javascript" src='js/SAMrenderer.js'></script>
+</body>
+</html>
