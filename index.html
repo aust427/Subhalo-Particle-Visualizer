@@ -7,28 +7,6 @@
     <link rel="stylesheet" type="text/css" href="main.css">
 </head>
 
-<script type="x-shader/xvertex" id="vertexShader">
-    attribute float size;
-    varying vec3 vColor;
-    void main(){
-        vColor = vec3(1.0, 1.0, 1.0);
-        vec4 mvPosition = modelViewMatrix * vec4(vec3(position), 1.0);
-
-        gl_PointSize = size / length (mvPosition.xyz);
-        gl_Position = projectionMatrix * mvPosition;
-    }
-</script>
-
-<script type="x-shader/x-fragment" id="fragmentShader">
-    uniform sampler2D texture;
-    varying vec3 vColor;
-    void main()
-    {
-        gl_FragColor = vec4(vColor, 1.0);
-        gl_FragColor = gl_FragColor * texture2D(texture, gl_PointCoord);
-    }
-</script>
-
 <html>
 <body>
     <div id="HaloForm">

@@ -49,7 +49,7 @@ var Gamma_Minus_1 = 2 / 3;
 var ProtonMass = 1.6726 * Math.pow(10, -24);
 var Boltzmann = 1.3807 * Math.pow(10, -16);
 
-var path = 'http://'+'10.128.145.141' + ':5000'
+var path = 'http://' + '10.128.145.111' + ':5000';
 
 function tablePosition() {
   var p = $("#container");
@@ -83,10 +83,9 @@ function PyJSON(parts) {
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
-      if (parts.simulation == 'illustris' || parts.simulation == 'illustrisTNG'){
-        star_particle_JSON = data['stars'];
-        gas_particle_JSON = data['gas'];
-      }
+      star_particle_JSON = data['stars'];
+      gas_particle_JSON = data['gas'];
+      
       init_scene(data);
     }
   });
@@ -183,7 +182,7 @@ function createParticles(particleJSON, type) {
 
     positions.push(pX, pY, pZ);
     if (type == 'gas')
-      colors.push((58 / 255), (56 / 255), (170 / 255));
+      colors.push((0 / 255), (56 / 255), (170 / 255));
     else
       colors.push((255 / 255), (255 / 255), (0 / 255));
   }
@@ -304,6 +303,7 @@ function renderChart(data) {
     right: 10
   };
 
+  console.log(data);
   let w = WIDTH - margin.left - margin.right;
   let h = HEIGHT - margin.top - margin.bottom;
 
@@ -329,14 +329,17 @@ function renderChart(data) {
   var min = d3.min(data, function (d) { return d.pointCount; });
   var max = d3.max(data, function (d) { return d.pointCount; });
 
+  console.log([min, max]);
+  console.log([(min + (1 - min)), (max + (1 - min))]);
+  console.log([Math.log(min + (1 - min)), Math.log(max + (1 - min))]);
 
-  console.log(min);
-  console.log(max);
-  console.log(Math.log(min));
-  console.log(Math.log(max));
+  var linColorScale = d3.scaleSequential()
+    .domain([min, max])
+    .interpolator(d3.interpolateInferno);
 
-  var linColorScale = d3.scaleSequential(d3.interpolateInferno)
-    .domain([min, max]);
+  var logColorScale = d3.scaleSequential()
+    .domain([Math.log(min + (1 - min)), Math.log(max + (1 - min))])
+    .interpolator(d3.interpolateInferno);
 
   const yaxis = d3.axisLeft()
     .scale(y);
@@ -358,11 +361,11 @@ function renderChart(data) {
     .attr('y', function (d) { return y(d.lowerRight[1]); })
     .attr('width', function (d) { return rectWidth; })
     .attr('height', function (d) { return rectHeight; })
-    .attr('fill', function (d) { return linColorScale(d.pointCount); })
+    .attr('fill', function (d) { return logColorScale(Math.log(d.pointCount + (1 - min))); })
     .on('mouseover', function (d) {
       console.log(d.pointCount);
-      console.log(Math.log(1 + d.pointCount));
-  });
+      console.log(Math.log(d.pointCount + (1 - min)));
+    });
 
   svg.append('g')
     .call(yaxis);
