@@ -1,10 +1,10 @@
-const WIDTH = window.innerWidth * 4 / 5;
+const WIDTH = window.innerWidth * 9 / 10;
 const HEIGHT = window.innerHeight * 4 / 5;
 
 const VIEW_ANGLE = 45;
 const ASPECT = WIDTH / HEIGHT;
-const NEAR = 0.01;
-const FAR = 100000;
+const NEAR = 1;
+const FAR = 1000;
 
 var viewSize = 1000;
 
@@ -12,7 +12,7 @@ var scene, renderer, container, camera, camera_o, camera_p, controls;
 
 var form = document.getElementById('simulForm');
 
-var path = 'http://' + '10.128.145.42' + ':5000';
+var path = 'http://' + '10.128.145.111' + ':5000';
 
 var id = null;
 
@@ -20,6 +20,8 @@ var step = 1;
 var angle = 0.01;
 
 var currentlyPressedKey = {};
+
+var frustum = new THREE.Frustum();
 
 //https://2pha.com/blog/threejs-easy-round-circular-particles/
 function createCanvasMaterial(color, size) {
@@ -41,102 +43,87 @@ function createCanvasMaterial(color, size) {
   return texture;
 }
 
-function init_sam(d) {
+// https://github.com/mrdoob/three.js/blob/master/examples/webgl_buffergeometry_instancing2.html
+function init_sam(d, geometry, g_r) {
   var pos = d['positions'];
   var shape = d['size'];
 
   particleCount = d['count'];
 
-  var geometry = new THREE.CircleGeometry(0.1, 12);
-  var material = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-  material.side = THREE.DoubleSide;
+  var colors = [];
 
-  var sphereGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-  var spherematerial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  for (var i = 0; i < geometry.attributes.position.count; i++) {
+    if (g_r == 'r_bulge') 
+      colors.push(244 / 255, 194 / 255, 66 / 255);
+    else 
+      colors.push(84 / 255, 84 / 255, 216 / 255);
+  }
+
+  geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  var material = new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: THREE.VertexColors });
+
+  var instancePositions = [];
+  var instanceQuaternions = [];
+  var instanceScales = [];
 
   for (var p = 0; p < particleCount; p++) {
-    var disk = new THREE.Mesh(geometry, material);
-    var sphere = new THREE.Mesh(sphereGeometry, spherematerial);
+    var mesh = new THREE.Mesh(geometry, material);
 
-    var ra = pos['pos-x'][p] - 150.13226;
-    var dec = pos['pos-y'][p] - 2.3211206;
-    var z_redshift = pos['pos-z'][p];
+    var position = mesh.position;
+    var quaternion = mesh.quaternion;
+    var scale = mesh.scale;
 
     var a = 1000;
 
+    var ra = pos['pos-x'][p] - pos["pos-x-mid"];
+    var dec = pos['pos-y'][p] - pos["pos-y-mid"];
+    var z_redshift = pos['pos-z'][p];
+
     pX = -1 * a * z_redshift * Math.cos(dec) * Math.cos(ra);
-    pY = a * z_redshift * Math.cos(dec) * Math.sin(ra);
-    pZ = a * z_redshift * Math.sin(dec);
-    
-    // bulge shenanigans 
-    sphere.position.x = pZ;
-    sphere.position.y = pY;
-    sphere.position.z = pX;
+    pY = 2 * a * z_redshift * Math.cos(dec) * Math.sin(ra);
+    pZ = 2 * a * z_redshift * Math.sin(dec);
 
-    sphere.scale.x = shape['r_bulge'][p] / 2;
-    sphere.scale.y = shape['r_bulge'][p] / 2;
-    sphere.scale.z = shape['r_bulge'][p] / 2;
+    if (shape[g_r][p] != 0) {
+      i++;
+      position.set(pZ, pY, pX);
+      var r = shape[g_r][p] / ((1 + z_redshift));
 
-    sphere.frustumCulled = false;
+      if (g_r == 'r_bulge') {
+        scale.set(r / 10, r / 10, r / 10);
+        quaternion.set(0, 0, 0, 0);
+      } else {
+        scale.set(r / 10, r / 10, 1 / 10);
+        quaternion.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
+      }
+      quaternion.normalize();
 
-    if (sphere.scale.x > 0.00000001) scene.add(sphere);
-
-    // Disk shenanigans 
-    disk.position.x = pZ;
-    disk.position.y = pY;
-    disk.position.z = pX;
-
-    disk.rotation.x = Math.random() * 2 * Math.PI;
-    disk.rotation.y = Math.random() * 2 * Math.PI;
-    disk.rotation.z = Math.random() * 2 * Math.PI;
-
-    disk.scale.x = shape['r_disk'][p] / 2;
-    disk.scale.y = shape['r_disk'][p] / 2;
-
-    disk.frustumCulled = false;
-
-    scene.add(disk);
-  }
-}
-
-
-function createGrids() {
-  var size = 10000;
-  var divisions = 100;
-  var colorGrid = 0x3d3d3d;
-
-  var grid = new THREE.GridHelper(size, divisions, colorGrid, colorGrid);
-  grid.name = 'grid';
-
-  scene.add(grid);
-}
-
-/**
- * Summary. Creates x-y-z axes for visually orienting the scene. 
- * 
- * @param {any} vec 
- * @param {any} positive
- * @param {any} line_col
- */
-function createAxes(vec, positive, line_col, axis) {
-  var line_material = null;
-
-  if (positive) { //solid line
-    line_material = new THREE.LineBasicMaterial({ color: line_col });
-    createAxes(new THREE.Vector3(vec.x * -1, vec.y * -1, vec.z * -1), false, line_col, axis);
-  } else { //negative line
-    line_material = new THREE.LineDashedMaterial({ color: line_col, dashSize: 4, gapSize: 4, linewidth: 2 });
+      instancePositions.push(position.x, position.y, position.z);
+      instanceQuaternions.push(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+      instanceScales.push(scale.x, scale.y, scale.z);
+    }
   }
 
-  var line_geometry = new THREE.Geometry();
-  line_geometry.vertices.push(new THREE.Vector3(0, 0, 0));
-  line_geometry.vertices.push(vec);
+  var instancedGeometry = new THREE.InstancedBufferGeometry();
+  instancedGeometry.index = geometry.index;
+  instancedGeometry.verticesNeedUpdate = true
+  instancedGeometry.attributes = geometry.attributes;
+  instancedGeometry.addAttribute('instancePosition', new THREE.InstancedBufferAttribute(new Float32Array(instancePositions), 3));
+  instancedGeometry.addAttribute('instanceQuaternion', new THREE.InstancedBufferAttribute(new Float32Array(instanceQuaternions), 4));
+  instancedGeometry.addAttribute('instanceScale', new THREE.InstancedBufferAttribute(new Float32Array(instanceScales), 3));
 
-  line = new THREE.Line(line_geometry, line_material);
-  line.name = (positive) ? axis + '-pos' : axis + '-neg';
-  line.computeLineDistances();
+  var shaderMaterial = new THREE.ShaderMaterial({
+    uniforms: {},
+    vertexShader: document.getElementById('vertexShader').textContent,
+    fragmentShader: document.getElementById('fragmentShader').textContent,
+    vertexColors: true,
+    side: THREE.DoubleSide
+  });
 
-  scene.add(line);
+  var instancedMesh = new THREE.Mesh(instancedGeometry, shaderMaterial);
+  instancedMesh.frustumCulled = false;
+  scene.add(instancedMesh);
+
+  return (instancedMesh);
 }
 
 function handleKeyDown(event) {
@@ -154,10 +141,10 @@ function init_scene(dat) {
 
   container = document.querySelector('#container');
 
-  camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+  camera = new THREE.OrthographicCamera(-ASPECT * viewSize / 20, ASPECT * viewSize / 20, viewSize / 20, -viewSize / 20, 0, FAR);
   camera.position.x = 0;
   camera.position.y = 0;
-  camera.position.z = 10;
+  camera.position.z = 0;
   camera.name = 'cam';
   camera.frustumCulled = false;
 
@@ -168,15 +155,8 @@ function init_scene(dat) {
   scene = new THREE.Scene();
   scene.add(camera);
 
-  createAxes(new THREE.Vector3(1000000, 0, 0), true, 0x0000ff, 'x');
-  createAxes(new THREE.Vector3(0, 1000000, 0), true, 0x00ff00, 'z');
-  createAxes(new THREE.Vector3(0, 0, -1000000), true, 0xff0000, 'y');
-  //createGrids();
-
-  points = init_sam(dat);
-
- // $('#display_grid')[0].checked = true;
- // $('#display_axes')[0].checked = true;
+  disks = init_sam(dat, new THREE.CircleBufferGeometry(1, 16), 'r_disk');
+  bulges = init_sam(dat, new THREE.SphereBufferGeometry(1, 8, 8, 0, Math.PI, 0, Math.PI), 'r_bulge');
 
   container.appendChild(renderer.domElement);
 
@@ -187,14 +167,16 @@ function init_scene(dat) {
   requestAnimationFrame(update);
 }
 
+var zFac = 0.0005;
+
 function cameraUpdate() {
   if (currentlyPressedKey[83]) {
     if (camera.type == "OrthographicCamera") {
       if ((camera.right - camera.left) > 1) {
-        camera.left -= 1;
-        camera.right += 1;
-        camera.top += 1;
-        camera.bottom -= 1;
+        camera.left -= zFac * WIDTH;
+        camera.right += zFac * WIDTH;
+        camera.top += zFac * HEIGHT;
+        camera.bottom -= zFac * HEIGHT;
       }
     }
     else { camera.position.z += step; }
@@ -202,10 +184,10 @@ function cameraUpdate() {
   if (currentlyPressedKey[87]) {
     if (camera.type == "OrthographicCamera") {
       if ((camera.right - camera.left) > 2) {
-        camera.left += 1;
-        camera.right -= 1;
-        camera.top -= 1;
-        camera.bottom += 1;
+        camera.left += zFac * WIDTH;
+        camera.right -= zFac * WIDTH;
+        camera.top -= zFac * HEIGHT;
+        camera.bottom += zFac * HEIGHT;
       }
     }
     else { camera.position.z -= step; }
@@ -240,22 +222,17 @@ function cameraUpdate() {
     }
     else { camera.position.y -= step; }
   }
-
-  if (currentlyPressedKey[74]) {
-    camera.rotation.y += angle;
-  }
-  if (currentlyPressedKey[76]) {
-    camera.rotation.y -= angle;
-  }
-
-  if (currentlyPressedKey[73]) {
-    camera.rotation.x += angle;
-  }
-
-  if (currentlyPressedKey[75]) {
-    camera.rotation.x -= angle;
-  }
 }
+
+function updateFrustrum() {
+  camera.updateProjectionMatrix();
+  camera.updateMatrix(); // make sure camera's local matrix is updated
+  camera.updateMatrixWorld(); // make sure camera's world matrix is updated
+  camera.matrixWorldInverse.getInverse(camera.matrixWorld);
+
+  frustum.setFromMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+}
+
 
 function PyJSON(parts) {
   $.ajax({
@@ -265,6 +242,7 @@ function PyJSON(parts) {
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
+      console.log(data);
       init_scene(data);
     }
   });
@@ -299,69 +277,11 @@ function processForm(e) {
 function update() {
   cameraUpdate();
 
+  updateFrustrum();
   renderer.render(scene, camera);
 
   id = requestAnimationFrame(update);
 }
-
-function instancing() {
-  var geometry = new THREE.CircleGeometry(1, 12);
-
-  var pCount = 20000;
-  
-  var instancedGeometry = new THREE.InstancedBufferGeometry();
-  
-  
-  instancedGeometry.index = geometry.index;
-  instancedGeometry.maxInstancedCount = pCount;
-  
-  const matArraySize = pCount * 4
-  const matrixArray = [
-    new Float32Array(matArraySize),
-    new Float32Array(matArraySize),
-    new Float32Array(matArraySize),
-    new Float32Array(matArraySize),
-  ]
-  /*
-    Object.keys(geometry.attributes).forEach(attributeName => {
-    instancedGeometry.attributes[attributeName] = geometry.attributes[attributeName]
-  });
-  
-  for (let i = 0; i < matrixArray.length; i++) {
-    instancedGeometry.addAttribute(
-      `aInstanceMatrix${i}`,
-      new THREE.InstancedBufferAttribute(matrixArray[i], 4)
-    )
-  }
-
-  const instanceColorArray = new Uint8Array(pCount * 3)
-  instancedGeometry.addAttribute(
-    'aInstanceColor',
-    new THREE.InstancedBufferAttribute(instanceColorArray, 3, true)
-  )
-  
-  */
-  var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-  var disk = new THREE.Mesh(geometry, material);
-
-  for (var i = 0; i < pCount; i++) {
-    var disk = new THREE.Mesh(geometry, material);
-
-    disk.position.x = Math.random() * 800 - 400;
-    disk.position.y = Math.random() * 800 - 400;
-    disk.position.z = Math.random() * 800 - 400;
-
-    disk.rotation.x = Math.random() * 2 * Math.PI;
-    disk.rotation.y = Math.random() * 2 * Math.PI;
-    disk.rotation.z = Math.random() * 2 * Math.PI;
-
-    disk.scale.x = Math.random() + 0.5;
-    disk.scale.y = Math.random() + 0.5;
-
-    scene.add(disk);
-  }
-}
-
 
 function init() {
   container = document.querySelector('#container');
@@ -369,6 +289,7 @@ function init() {
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(WIDTH, HEIGHT);
   renderer.domElement.id = 'render';
+  renderer.powerPreference = "high-performance";
 
   scene = new THREE.Scene();
   container.appendChild(renderer.domElement);
@@ -388,9 +309,6 @@ function init() {
 
   document.onkeydown = handleKeyDown;
   document.onkeyup = handleKeyUp;
-
- // instancing();
-  update();
 }
 
 $(document).ready(function () {

@@ -20,21 +20,25 @@ subN = 0
 
 basePath = '/mnt/home/agabrielpillai/Illustris-3/'
 fields = ['SubhaloMass','SubhaloSFRinRad']
-subhalos = il.groupcat.loadSubhalos(basePath,135,fields=fields)
-GroupFirstSub = il.groupcat.loadHalos(basePath,135,fields=['GroupFirstSub'])
+subhalos = il.groupcat.loadSubhalos(basePath, 135, fields=fields)
+GroupFirstSub = il.groupcat.loadHalos(basePath, 135, fields=['GroupFirstSub'])
 
 
 def samJSON(f, r, zl, zh):
     print('scsam')
     scsam = fi_astrosims.client.Simulation("scsam", host="http://astrosims.flatironinstitute.org")
-    q = scsam.query(fields = ["redshift","ra","dec","r_disk","rbulge"],
-                    field = f, realization = r,
-                    redshift = (zl, zh))
+    q = scsam.query(fields=["redshift", "ra", "dec", "r_disk", "rbulge"],
+                    field=f, realization=r, redshift=(zl, zh))
     dat = q.numpy()
+
+    agg_x = q.aggs('ra')
+    agg_y = q.aggs('dec')
 
     position_data = {"pos-x": dat['ra'].tolist(),
                      "pos-y": dat['dec'].tolist(),
-                     "pos-z": dat['redshift'].tolist()}
+                     "pos-z": dat['redshift'].tolist(),
+                     "pos-x-mid": (agg_x['max'] + agg_x['min']) / 2,
+                     "pos-y-mid": (agg_y['max'] + agg_y['min']) / 2}
 
     size_data = {"r_bulge": dat['rbulge'].tolist(),
                  "r_disk": dat['r_disk'].tolist()}
@@ -57,15 +61,7 @@ def partJSON(snapNum, subHaloNum):
                                   fields=None)
     dat_gas = il.snapshot.loadSubhalo(basePath, snapNum, subHaloNum, 'gas', fields=None)
 
-    stel_mags = dat['GFM_StellarPhotometrics']
     int_energy = dat_gas['InternalEnergy']
-
-    B = stel_mags[:, 1]
-    V = stel_mags[:, 2]
-
-    T = 4600 * (1 / (0.92 * (B - V) + 1.7) + 1 / (0.92 * (B - V) + 0.62))
-    T = (T - 1850) / 33000 * 100
-
     coords = dat['Coordinates']
     coords_gas = dat_gas['Coordinates']
     elec_abund = dat_gas['ElectronAbundance']
@@ -81,7 +77,7 @@ def partJSON(snapNum, subHaloNum):
     star_data = {"pos-x": coords[:, 0].tolist(),
                  "pos-y": coords[:, 2].tolist(),
                  "pos-z": coords[:, 1].tolist(),
-                 "T": T.tolist(), "count": np.shape(coords)[0]}
+                 "count": np.shape(coords)[0]}
 
     gas_data = {"pos-x": coords_gas[:, 0].tolist(),
                 "pos-y": coords_gas[:, 2].tolist(),
