@@ -1,3 +1,4 @@
+
 const WIDTH = window.innerWidth * 9 / 10;
 const HEIGHT = window.innerHeight * 4 / 5;
 
@@ -8,40 +9,10 @@ const FAR = 1000;
 
 var viewSize = 1000;
 
-var scene, renderer, container, camera, camera_o, camera_p, controls;
-
-var form = document.getElementById('simulForm');
-
-var path = 'http://' + '10.128.145.111' + ':5000';
-
-var id = null;
-
 var step = 1;
 var angle = 0.01;
 
-var currentlyPressedKey = {};
-
-var frustum = new THREE.Frustum();
-
-//https://2pha.com/blog/threejs-easy-round-circular-particles/
-function createCanvasMaterial(color, size) {
-  var matCanvas = document.createElement('canvas');
-  matCanvas.width = matCanvas.height = size;
-  var matContext = matCanvas.getContext('2d');
-  // create exture object from canvas.
-  var texture = new THREE.Texture(matCanvas);
-  // Draw a circle
-  var center = size / 2;
-  matContext.beginPath();
-  matContext.arc(center, center, size / 2, 0, 2 * Math.PI, false);
-  matContext.closePath();
-  matContext.fillStyle = color;
-  matContext.fill();
-  // need to set needsUpdate
-  texture.needsUpdate = true;
-  // return a texture made from the canvas
-  return texture;
-}
+var zFac = 0.0005;
 
 // https://github.com/mrdoob/three.js/blob/master/examples/webgl_buffergeometry_instancing2.html
 function init_sam(d, geometry, g_r) {
@@ -54,9 +25,9 @@ function init_sam(d, geometry, g_r) {
 
   for (var i = 0; i < geometry.attributes.position.count; i++) {
     if (g_r == 'r_bulge') 
-      colors.push(244 / 255, 194 / 255, 66 / 255);
+      colors.push(255 / 255, 0 / 255, 255 / 255);
     else 
-      colors.push(84 / 255, 84 / 255, 216 / 255);
+      colors.push(0 / 255, 255 / 255, 255 / 255);
   }
 
   geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -126,13 +97,6 @@ function init_sam(d, geometry, g_r) {
   return (instancedMesh);
 }
 
-function handleKeyDown(event) {
-  currentlyPressedKey[event.keyCode] = true;
-}
-
-function handleKeyUp(event) {
-  currentlyPressedKey[event.keyCode] = false;
-}
 
 function init_scene(dat) {
   if (id !== null) {
@@ -167,88 +131,6 @@ function init_scene(dat) {
   requestAnimationFrame(update);
 }
 
-var zFac = 0.0005;
-
-function cameraUpdate() {
-  if (currentlyPressedKey[83]) {
-    if (camera.type == "OrthographicCamera") {
-      if ((camera.right - camera.left) > 1) {
-        camera.left -= zFac * WIDTH;
-        camera.right += zFac * WIDTH;
-        camera.top += zFac * HEIGHT;
-        camera.bottom -= zFac * HEIGHT;
-      }
-    }
-    else { camera.position.z += step; }
-  }
-  if (currentlyPressedKey[87]) {
-    if (camera.type == "OrthographicCamera") {
-      if ((camera.right - camera.left) > 2) {
-        camera.left += zFac * WIDTH;
-        camera.right -= zFac * WIDTH;
-        camera.top -= zFac * HEIGHT;
-        camera.bottom += zFac * HEIGHT;
-      }
-    }
-    else { camera.position.z -= step; }
-  }
-
-  if (currentlyPressedKey[68]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.left += step;
-      camera.right += step;
-    }
-    else { camera.position.x += step; }
-  }
-  if (currentlyPressedKey[65]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.left -= step;
-      camera.right -= step;
-    }
-    else { camera.position.x -= step; }
-  }
-
-  if (currentlyPressedKey[82]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.bottom += step;
-      camera.top += step;
-    }
-    else { camera.position.y += step; }
-  }
-  if (currentlyPressedKey[70]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.bottom -= step;
-      camera.top -= step;
-    }
-    else { camera.position.y -= step; }
-  }
-}
-
-function updateFrustrum() {
-  camera.updateProjectionMatrix();
-  camera.updateMatrix(); // make sure camera's local matrix is updated
-  camera.updateMatrixWorld(); // make sure camera's world matrix is updated
-  camera.matrixWorldInverse.getInverse(camera.matrixWorld);
-
-  frustum.setFromMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-}
-
-
-function PyJSON(parts) {
-  $.ajax({
-    type: 'POST',
-    url: path + "/particle_JSON",
-    data: JSON.stringify(parts),
-    dataType: 'json',
-    contentType: 'application/json; charset=UTF-8',
-    success: function (data) {
-      console.log(data);
-      init_scene(data);
-    }
-  });
-  event.preventDefault();
-}
-
 function processForm(e) {
   if (e.preventDefault) e.preventDefault();
 
@@ -275,7 +157,7 @@ function processForm(e) {
 }
 
 function update() {
-  cameraUpdate();
+  cameraUpdate(zFac);
 
   updateFrustrum();
   renderer.render(scene, camera);
@@ -283,34 +165,14 @@ function update() {
   id = requestAnimationFrame(update);
 }
 
-function init() {
-  container = document.querySelector('#container');
+$(document).ready(function () {
+  init();
 
-  renderer = new THREE.WebGLRenderer();
-  renderer.setSize(WIDTH, HEIGHT);
-  renderer.domElement.id = 'render';
   renderer.powerPreference = "high-performance";
-
-  scene = new THREE.Scene();
-  container.appendChild(renderer.domElement);
-
-  if (form.attachEvent) {
-    form.attachEvent("submit", processForm);
-  } else {
-    form.addEventListener("submit", processForm);
-  }
-
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
   camera.position.x = 0;
   camera.position.y = 0;
   camera.position.z = 10;
   camera.name = 'cam';
   camera.frustumCulled = false;
-
-  document.onkeydown = handleKeyDown;
-  document.onkeyup = handleKeyUp;
-}
-
-$(document).ready(function () {
-  init();
 });

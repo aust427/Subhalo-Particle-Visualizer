@@ -1,16 +1,15 @@
 ﻿<head>
     <meta charset="utf-8">
-    <script type="text/javascript" src="js/three.js-master/build/three.min.js"></script>
     <script src="https://d3js.org/d3.v4.min.js"></script>
-    <script type="text/javascript" src="js/three.js-master/examples/js/controls/OrbitControls.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/104/three.min.js"></script>
     <link rel="stylesheet" type="text/css" href="main.css">
 </head>
 
 <html>
 <body>
     <div id="HaloForm">
-        <form id="snapHaloForm">
+        <form id="simulForm">
             Simulation:
             <select name="simulation">
                 <option value="illustris">Illustris</option>
@@ -140,6 +139,7 @@
             </td>
         </tr>
     </table>
+    <script type="text/javascript" src='js/common.js'></script>
     <script type="text/javascript" src='js/intro_script.js'></script>
 </body>
 </html>

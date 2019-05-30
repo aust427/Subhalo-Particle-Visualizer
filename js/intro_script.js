@@ -1,3 +1,4 @@
+
 const WIDTH = window.innerHeight * 4 / 5;
 const HEIGHT = WIDTH;
 
@@ -13,9 +14,6 @@ var scene, renderer, container, camera, camera_o, camera_p, controls;
 var star_particle_JSON, gas_particle_JSON, heatmap_JSON;
 var starPoints, gasPoints;
 var heatmapField= 'NumDen';
-
-var form = document.getElementById('snapHaloForm');
-var simul;
 
 var currentlyPressedKey = {};
 
@@ -49,8 +47,6 @@ var Gamma_Minus_1 = 2 / 3;
 var ProtonMass = 1.6726 * Math.pow(10, -24);
 var Boltzmann = 1.3807 * Math.pow(10, -16);
 
-var path = 'http://' + '10.128.145.111' + ':5000';
-
 function tablePosition() {
   var p = $("#container");
   var pos = p.position();
@@ -83,9 +79,7 @@ function PyJSON(parts) {
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
-      star_particle_JSON = data['stars'];
-      gas_particle_JSON = data['gas'];
-      
+      console.log(data); 
       init_scene(data);
     }
   });
@@ -96,9 +90,9 @@ function PyJSON(parts) {
 function processForm(e) {
   if (e.preventDefault) e.preventDefault();
 
-  simul = document.forms.snapHaloForm.simulation.value;
-  snapNum = document.forms.snapHaloForm.snapshot.value;
-  subHaloNum = document.forms.snapHaloForm.subhalo.value;
+  var simul = document.forms.simulForm.simulation.value;
+  var snapNum = document.forms.simulForm.snapshot.value;
+  var subHaloNum = document.forms.simulForm.subhalo.value;
 
   if ((snapNum) && (subHaloNum)) {
     var pyJSON = {
@@ -197,7 +191,6 @@ function createParticles(particleJSON, type) {
   return (points);
 }
 
-
 function createGrids() {
   var size = 10000;
   var divisions = 100;
@@ -242,6 +235,9 @@ function init_scene(dat) {
     cancelAnimationFrame(id);
   }
 
+  star_particle_JSON = dat['stars'];
+  gas_particle_JSON = dat['gas'];
+
   container = document.querySelector('#container');
 
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
@@ -271,28 +267,9 @@ function init_scene(dat) {
 
   container.appendChild(renderer.domElement);
 
-  document.onkeydown = handleKeyDown;
-  document.onkeyup = handleKeyUp;
   document.getElementById("container").style.width = document.getElementById("render").style.width;
 
   requestAnimationFrame(update);
-}
-
-function updateFrustrum() {
-  camera.updateProjectionMatrix();
-  camera.updateMatrix(); // make sure camera's local matrix is updated
-  camera.updateMatrixWorld(); // make sure camera's world matrix is updated
-  camera.matrixWorldInverse.getInverse(camera.matrixWorld);
-
-  frustum.setFromMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-}
-
-function handleKeyDown(event) {
-  currentlyPressedKey[event.keyCode] = true;
-}
-
-function handleKeyUp(event) {
-  currentlyPressedKey[event.keyCode] = false;
 }
 
 function renderChart(data) {
@@ -513,64 +490,10 @@ function particleUpdate() {
   gasPoints.updateMatrixWorld();
 }
 
-function cameraUpdate() {
-  if (currentlyPressedKey[83]) {
-    if (camera.type == "OrthographicCamera") {
-      if ((camera.right - camera.left) > 1) {
-        camera.left -= 1;
-        camera.right += 1;
-        camera.top += 1;
-        camera.bottom -= 1;
-      }
-    }
-    else { camera.position.z += step; }
-  }
-  if (currentlyPressedKey[87]) {
-    if (camera.type == "OrthographicCamera") {
-      if ((camera.right - camera.left) > 2) {
-        camera.left += 1;
-        camera.right -= 1;
-        camera.top -= 1;
-        camera.bottom += 1;
-      }
-    }
-    else { camera.position.z -= step; }
-  }
-
-  if (currentlyPressedKey[68]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.left += step;
-      camera.right += step;
-    }
-    else { camera.position.x += step; }
-  }
-  if (currentlyPressedKey[65]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.left -= step;
-      camera.right -= step;
-    }
-    else { camera.position.x -= step; }
-  }
-
-  if (currentlyPressedKey[82]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.bottom += step;
-      camera.top += step;
-    }
-    else { camera.position.y += step; }
-  }
-  if (currentlyPressedKey[70]) {
-    if (camera.type == "OrthographicCamera") {
-      camera.bottom -= step;
-      camera.top -= step;
-    }
-    else { camera.position.y -= step; }}
-}
-
 function update() {
   particleUpdate();
   starPoints.geometry.verticesNeedUpdate = true; 
-  cameraUpdate();
+  cameraUpdate(0.001);
 
   if (currentlyPressedKey[32]) {
        drawHeatmap(heatmapOptions);
@@ -583,27 +506,9 @@ function update() {
   id = requestAnimationFrame(update);
 }
 
-function init() {
-  container = document.querySelector('#container');
-
-  renderer = new THREE.WebGLRenderer();
-  renderer.setSize(WIDTH, HEIGHT);
-  renderer.domElement.id = 'render';
-
-  scene = new THREE.Scene();
-  container.appendChild(renderer.domElement);
-
-  tablePosition();
-
-  if (form.attachEvent) {
-    form.attachEvent("submit", processForm);
-  } else {
-    form.addEventListener("submit", processForm);
-  }
-}
-
 $(document).ready(function () {
   init();
+  tablePosition();
 
   $("#P_cam").click(function () {
     if (camera) {
