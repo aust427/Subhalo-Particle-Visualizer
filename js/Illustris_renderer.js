@@ -7,27 +7,24 @@ const ASPECT = WIDTH / HEIGHT;
 const NEAR = 1;
 const FAR = 10000;
 
-var viewSize = 1000;
+var angle = 0.0075;
+var step = 4;
 
-var scene, renderer, container, camera, camera_o, camera_p, controls;
+var yhelium = 0.0789;
+var Gamma_Minus_1 = 2 / 3;
+var ProtonMass = 1.6726 * Math.pow(10, -24);
+var Boltzmann = 1.3807 * Math.pow(10, -16);
+
+var camera_o, camera_p;
 
 var star_particle_JSON, gas_particle_JSON, heatmap_JSON;
 var starPoints, gasPoints;
 var heatmapField= 'NumDen';
 
-var currentlyPressedKey = {};
-
-var frustum = new THREE.Frustum();
-
-var id = null;
-
-var angle = 0.0075;
-var step = 4;
-
 var gridX = gridY = 20;
 var colMax = 0;
 
-mat = createCanvasMaterial('#FFFFFF', 256);
+var mat = createCanvasMaterial('#FFFFFF', 256);
 
 var pMaterial = new THREE.PointsMaterial({
   size: 1,
@@ -41,11 +38,6 @@ var heatmapOptions = {
   "type": 'star',
   "field": 'NumDen'
 };
-
-var yhelium = 0.0789;
-var Gamma_Minus_1 = 2 / 3;
-var ProtonMass = 1.6726 * Math.pow(10, -24);
-var Boltzmann = 1.3807 * Math.pow(10, -16);
 
 function tablePosition() {
   var p = $("#container");
@@ -127,7 +119,6 @@ function createCanvasMaterial(color, size) {
   return texture;
 }
 
-
 /**
  * Summary. calculate distance ratio for star color and returns combination
  * 
@@ -159,7 +150,6 @@ function colorCalc(p) {
    // var u = gas_particle_JSON['int-eng'][p];
   //  var nelec = gas_particle_JSON['nelec'][p];
 // var T_calc = Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec);
-
 function createParticles(particleJSON, type) {
   var geometry = new THREE.BufferGeometry();
   var positions = [];

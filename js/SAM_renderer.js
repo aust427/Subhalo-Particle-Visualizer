@@ -7,12 +7,8 @@ const ASPECT = WIDTH / HEIGHT;
 const NEAR = 1;
 const FAR = 1000;
 
-var viewSize = 1000;
-
-var step = 1;
 var angle = 0.01;
-
-var zFac = 0.0005;
+var step = 1;
 
 // https://github.com/mrdoob/three.js/blob/master/examples/webgl_buffergeometry_instancing2.html
 function init_sam(d, geometry, g_r) {
@@ -115,6 +111,7 @@ function init_scene(dat) {
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(WIDTH, HEIGHT);
   renderer.domElement.id = 'render';
+  renderer.powerPreference = "high-performance";
 
   scene = new THREE.Scene();
   scene.add(camera);
@@ -157,7 +154,7 @@ function processForm(e) {
 }
 
 function update() {
-  cameraUpdate(zFac);
+  cameraUpdate(0.0005);
 
   updateFrustrum();
   renderer.render(scene, camera);
@@ -167,12 +164,4 @@ function update() {
 
 $(document).ready(function () {
   init();
-
-  renderer.powerPreference = "high-performance";
-  camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
-  camera.position.x = 0;
-  camera.position.y = 0;
-  camera.position.z = 10;
-  camera.name = 'cam';
-  camera.frustumCulled = false;
 });
