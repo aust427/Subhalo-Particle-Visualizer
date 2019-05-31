@@ -26,6 +26,58 @@ var colMax = 0;
 
 var mat = createCanvasMaterial('#FFFFFF', 256);
 
+var velList = {
+  0: 'v_x',
+  1: 'v_y',
+  2: 'v_z'
+}
+
+var magList = {
+  0: 'U-band',
+  1: 'B-band',
+  2: 'V-band',
+  3: 'K-band',
+  4: 'g-band',
+  5: 'r-band',
+  6: 'i-band',
+  7: 'z-band'
+}
+
+var starList = {
+  'NumDen': 'Count',
+  'GFM_InitialMass': 'm_i,GFM',
+  'GFM_Metallicity': 'Metallicity_GFM',
+  'GFM_StellarFormationTime': 't_Star,Form,GFM',
+  'GFM_StellarPhotometrics': 'stellarPhoto_GFM',
+  'Masses': 'm',
+  'Potential': 'PE_g',
+  'SubfindDensity': 'p_s.f.',
+  'SubfindHsml': 'hsml_s.f.',
+  'SubfindVelDisp': 'vel_desp,s.f.',
+  'Velocities': 'vel'
+};
+
+var gasList = {
+  'NumDen': 'Count',
+  'ElectronAbundance': 'e_abund',
+  'GFM_AGNRadiation': 'Radiation_GFM',
+  'GFM_CoolingRate': 'Rate_cool,GFM',
+  'GFM_WindDMVelDisp': 'vel_wind,DM,GFM',
+  'InternalEnergy': 'E_internal',
+  'Masses': 'm',
+  'NeutralHydrogenAbundance': 'H_neut,abund',
+  'NumTracers': 'N_tracers',
+  'Potential': 'Pot',
+  'SmoothingLength': 'Smooth Length',
+  'StarFormationRate': 'SFR',
+  'SubfindDensity': 'p_s.f.',
+  'SubfindHsml': 'hsml_s.f.',
+  'SubfindVelDisp': 'vel_desp,s.f.',
+  'Velocities': 'vel',
+  'Volume': 'V'
+};
+
+
 var pMaterial = new THREE.PointsMaterial({
   size: 1,
   map: mat,
@@ -36,7 +88,8 @@ var pMaterial = new THREE.PointsMaterial({
 
 var heatmapOptions = {
   "type": 'star',
-  "field": 'NumDen'
+  "field": 'NumDen',
+  "subfield": ''
 };
 
 function tablePosition() {
@@ -49,6 +102,11 @@ function tablePosition() {
 }
 
 function heatmapJSON(json) {
+  if (json.field == 'NumDen') {
+    drawHeatmap(json);
+    return;
+  }
+
   $.ajax({
     type: 'POST',
     url: path + "/heatmap_JSON",
@@ -71,7 +129,6 @@ function PyJSON(parts) {
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
-      console.log(data); 
       init_scene(data);
     }
   });
@@ -147,9 +204,6 @@ function colorCalc(p) {
   return (set);
 }
 
-   // var u = gas_particle_JSON['int-eng'][p];
-  //  var nelec = gas_particle_JSON['nelec'][p];
-// var T_calc = Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec);
 function createParticles(particleJSON, type) {
   var geometry = new THREE.BufferGeometry();
   var positions = [];
@@ -270,7 +324,6 @@ function renderChart(data) {
     right: 10
   };
 
-  console.log(data);
   let w = WIDTH - margin.left - margin.right;
   let h = HEIGHT - margin.top - margin.bottom;
 
@@ -402,7 +455,7 @@ function drawHeatmap(hjson) {
   if (camera.type == "PerspectiveCamera") {
     return;
   }
-  console.log(hjson);
+
   d3.selectAll("svg").remove();
   updateFrustrum();
 
@@ -496,6 +549,12 @@ function update() {
   id = requestAnimationFrame(update);
 }
 
+function populateSelect(tag, obj) {
+  for (var i = 0; i < Object.keys(obj).length; i++) {
+    $(tag).append('<option value=' + Object.keys(obj)[i] + '>' + Object.values(obj)[i] + '</option>');
+  }
+}
+
 $(document).ready(function () {
   init();
   tablePosition();
@@ -511,6 +570,7 @@ $(document).ready(function () {
       d3.selectAll("svg").remove();
     }
   });
+
   $("#O_cam").click(function () {
     if (camera) {
       camera_o = new THREE.OrthographicCamera(-ASPECT * viewSize / 2, ASPECT * viewSize / 2, viewSize / 2, -viewSize / 2, -camera.position.z, FAR);
@@ -522,21 +582,25 @@ $(document).ready(function () {
       drawHeatmap(heatmapOptions);
     }
   });
+
   $('#display_grid').change(function () {
     if (camera) {
       scene.getObjectByName('grid').visible = !scene.getObjectByName('grid').visible;
     }
   });
+
   $('#display_stars').change(function () {
     if (camera) {
       scene.getObjectByName('stars').visible = !scene.getObjectByName('stars').visible;
     }
   });
+
   $('#display_gas').change(function () {
     if (camera) {
       scene.getObjectByName('gas').visible = !scene.getObjectByName('gas').visible;
     }
   });
+
   $('#reset_cam').click(function () {
     if (camera.type == 'PerspectiveCamera') {
       camera.position.x = 0;
@@ -552,6 +616,7 @@ $(document).ready(function () {
       drawHeatmap(heatmapOptions);
     }
   });
+
   $('#reset_rot').click(function () {
     if (camera) {
       scene.getObjectByName('stars').rotation.x = 0;
@@ -580,6 +645,7 @@ $(document).ready(function () {
   $('#rot_input').change(function () {
     angle = ($('#rot_input')[0].valueAsNumber);
   });
+
   $('#bin_num').change(function () {
     if (camera) {
       gridX = ($('#bin_num')[0].valueAsNumber);
@@ -587,18 +653,50 @@ $(document).ready(function () {
       drawHeatmap(heatmapOptions);
     }
   });
+
   $('#step_input').change(function () {
     step = ($('#step_input')[0].valueAsNumber);
   });
-  $('#heatmapField').change(function () {
-    if ((camera) && camera.type == 'OrthographicCamera') {
-      var val = $('#heatmapField').val();
-      heatmapOptions = $.parseJSON(val.replace(/'/g, '"'));
 
-      if (heatmapOptions["field"] == "NumDen")
-        drawHeatmap(heatmapOptions);
-      else
-        heatmapJSON(heatmapOptions);
+  $('#pType').change(function () {
+    heatmapOptions.type = this.value;
+    heatmapOptions.field = 'NumDen';
+    heatmapOptions.subfield = '';
+
+    console.log(heatmapOptions);
+
+    drawHeatmap(heatmapOptions);
+
+    $('#pField').children().remove();
+    $('#pSubField').children().remove();
+
+    if (this.value == 'star') 
+      populateSelect('#pField', starList);
+    else if (this.value == 'gas') 
+      populateSelect('#pField', gasList);
+  });
+
+  $('#pField').change(function () {
+    heatmapOptions.field = this.value;
+    heatmapOptions.subfield = '';
+
+    console.log(heatmapOptions);
+
+
+    $('#pSubField').children().remove();
+
+    if (this.value == 'Velocities')
+      populateSelect('#pSubField', velList);
+    else if (this.value == 'GFM_StellarPhotometrics')
+      populateSelect('#pSubField', magList);
+    else {
+      heatmapJSON(heatmapOptions);
     }
+  });
+
+  $('#pSubField').change(function () {
+    heatmapOptions.subfield = this.value;
+    console.log(heatmapOptions);
+    heatmapJSON(heatmapOptions);
   });
 });

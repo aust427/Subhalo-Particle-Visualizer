@@ -46,18 +46,6 @@
             </td>
         </tr>
         <tr>
-            <td class="tab_cell_left">A: -x</td>
-            <td class="tab_cell_right">D: +x</td>
-        </tr>
-        <tr>
-            <td class="tab_cell_left">S: -y</td>
-            <td class="tab_cell_right">W: +y</td>
-        </tr>
-        <tr>
-            <td class="tab_cell_left">F: -z</td>
-            <td class="tab_cell_right">R: +z</td>
-        </tr>
-        <tr>
             <td>
                 <button type="button" class="reset" id="reset_cam">Reset Camera</button>
             </td>
@@ -71,14 +59,6 @@
                 <input type="number" id="rot_input" value="0.075">
                 rad / frame
             </td>
-        </tr>
-        <tr>
-            <td class="tab_cell_left">J: CCW about z</td>
-            <td class="tab_cell_right">L: CW about z</td>
-        </tr>
-        <tr>
-            <td class="tab_cell_left">I: CCW about x</td>
-            <td class="tab_cell_right">K: CW about x</td>
         </tr>
         <tr>
             <td>
@@ -107,34 +87,24 @@
         </tr>
         <tr>
             <td>
+                Type:
+                <select id="pType">
+                    <option value=""></option>
+                    <option value="star">Star</option>
+                    <option value="gas">Gas</option>
+                </select>
+            </td>
+        <tr>
+            <td>
                 Field:
-                <select id="heatmapField">
-                    <option value="{'type': 'star', 'field': 'NumDen'}">Star Count</option>
-                    <option value="{'type': 'star', 'field': 'GFM_InitialMass'}">Initial Mass (GFM)</option>
-                    <option value="{'type': 'star', 'field': 'GFM_Metallicity'}">Metallicity (GFM)</option>
-                    <option value="{'type': 'star', 'field': 'GFM_StellarFormationTime'}">Stellar Form. Time</option>
-                    <option value="{'type': 'star', 'field': 'Masses'}">Mass</option>
-                    <option value="{'type': 'star', 'field': 'Potential'}">Potential</option>
-                    <option value="{'type': 'star', 'field': 'SubfindDensity'}">Density (Subfind)</option>
-                    <option value="{'type': 'star', 'field': 'SubfindHsml'}">Hsml (Subfind)</option>
-                    <option value="{'type': 'star', 'field': 'SubfindVelDisp'}">Vel. Disp. (Subfind)</option>
-                    <option value="{'type': 'gas', 'field': 'NumDen'}">Gas Count</option>
-                    <option value="{'type': 'gas', 'field': 'ElectronAbundance'}">Electron Abundance</option>
-                    <option value="{'type': 'gas', 'field': 'GFM_AGNRadiation'}">AGN Radiation (GFM)</option>
-                    <option value="{'type': 'gas', 'field': 'GFM_CoolingRate'}">Cooling Rate (GFM)</option>
-                    <option value="{'type': 'gas', 'field': 'GFM_Metallicity'}">Metallicity (GFM)</option>
-                    <option value="{'type': 'gas', 'field': 'GFM_WindDMVelDisp'}">Wind/DM Vel. Disp.</option>
-                    <option value="{'type': 'gas', 'field': 'InternalEnergy'}">Internal Energy</option>
-                    <option value="{'type': 'gas', 'field': 'Masses'}">Masses</option>
-                    <option value="{'type': 'gas', 'field': 'NeutralHydrogenAbundance'}">Neutral H Abund.</option>
-                    <option value="{'type': 'gas', 'field': 'NumTracers'}">Num. Tracers</option>
-                    <option value="{'type': 'gas', 'field': 'Potential'}">Potential</option>
-                    <option value="{'type': 'gas', 'field': 'SmoothingLength'}">Smoothing Length</option>
-                    <option value="{'type': 'gas', 'field': 'StarFormationRate'}">SFR</option>
-                    <option value="{'type': 'gas', 'field': 'SubfindDensity'}">Density (Subfind)</option>
-                    <option value="{'type': 'gas', 'field': 'SubfindHsml'}">Hhsml (Subfind)</option>
-                    <option value="{'type': 'gas', 'field': 'SubfindVelDisp'}">Vel. Disp (Subfind)</option>
-                    <option value="{'type': 'gas', 'field': 'Volume'}">Volume</option>
+                <select id="pField">
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Subfield:
+                <select id="pSubField">
                 </select>
             </td>
         </tr>

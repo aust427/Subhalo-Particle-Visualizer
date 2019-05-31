@@ -12,16 +12,13 @@ import numpy as np
 site.addsitedir('/mnt/home/agabrielpillai/')
 import illustris_python as il
 
+basePath = '/mnt/home/agabrielpillai/Illustris-3/'
 host = '0.0.0.0'
 port = '5000'
 
 snapN = 0
 subN = 0
 
-basePath = '/mnt/home/agabrielpillai/Illustris-3/'
-fields = ['SubhaloMass','SubhaloSFRinRad']
-subhalos = il.groupcat.loadSubhalos(basePath, 135, fields=fields)
-GroupFirstSub = il.groupcat.loadHalos(basePath, 135, fields=['GroupFirstSub'])
 
 
 def samJSON(f, r, zl, zh):
@@ -47,8 +44,10 @@ def samJSON(f, r, zl, zh):
             "count": np.shape(dat['ra'])[0]}
 
 
-def heatmapJSON(field, type):
+def heatmapJSON(field, type, subfield):
     dat = il.snapshot.loadSubhalo(basePath, snapN, subN, type, fields=field)
+    if subfield:
+        dat = dat[:, int(subfield)]
     heatmap_data = {field: dat.tolist()}
     return(heatmap_data)
 
@@ -59,7 +58,8 @@ def partJSON(snapNum, subHaloNum):
     print('illustris')
     dat = il.snapshot.loadSubhalo(basePath, snapNum, subHaloNum, 'stars',
                                   fields=None)
-    dat_gas = il.snapshot.loadSubhalo(basePath, snapNum, subHaloNum, 'gas', fields=None)
+    dat_gas = il.snapshot.loadSubhalo(basePath, snapNum, subHaloNum, 'gas',
+                                      fields=None)
 
     int_energy = dat_gas['InternalEnergy']
     coords = dat['Coordinates']
@@ -123,7 +123,7 @@ def outputHeatmap():
     data = res.decode('utf-8')
     data = json.loads(data)
     print(data)
-    return jsonify(heatmapJSON(data['field'], data['type']))
+    return jsonify(heatmapJSON(data['field'], data['type'], data['subfield']))
 
 
 @app.route('/')
