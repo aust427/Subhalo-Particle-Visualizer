@@ -207,6 +207,8 @@ function colorCalc(p) {
 function createParticles(particleJSON, type) {
   var geometry = new THREE.BufferGeometry();
   var positions = [];
+  var T = [];
+  var T_max = 0;
   var colors = [];
 
   $('#display_' + type)[0].checked = true; 
@@ -219,10 +221,25 @@ function createParticles(particleJSON, type) {
     var pZ = particleJSON['pos-z'][p];
 
     positions.push(pX, pY, pZ);
-    if (type == 'gas')
-      colors.push((0 / 255), (56 / 255), (170 / 255));
+    if (type == 'gas') {
+      var u = gas_particle_JSON['int-eng'][p];
+      var nelec = gas_particle_JSON['nelec'][p];
+      var T_calc = Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec);
+
+      T.push(T_calc);
+
+      if (T_calc > T_max)
+        T_max = T_calc;
+    }
     else
       colors.push((255 / 255), (255 / 255), (0 / 255));
+  }
+
+  if (type == 'gas') {
+    for (var p = 0; p < pCount; p++) {
+      var T_col = colorCalc(T[p] / T_max);
+      colors.push(T_col[0], T_col[1], T_col[2]);
+    }
   }
 
   geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
