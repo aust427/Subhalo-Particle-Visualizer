@@ -17,7 +17,7 @@ var Boltzmann = 1.3807 * Math.pow(10, -16);
 
 var camera_o, camera_p;
 
-var star_particle_JSON, gas_particle_JSON, heatmap_JSON;
+var star_particle_JSON, gas_particle_JSON, heatmap_JSON, contour_JSON;
 var starPoints, gasPoints;
 var heatmapField= 'NumDen';
 
@@ -87,12 +87,21 @@ var pMaterial = new THREE.PointsMaterial({
 });
 
 var heatmapOptions = {
+  "plot": 0,
   "type": 'star',
   "field": 'NumDen',
   "subfield": ''
 };
 
-function heatmapJSON(json) {
+
+var contourOptions = {
+  "plot": 1,
+  "type": 'star',
+  "field": 'NumDen',
+  "subfield": ''
+};
+
+function hcJSON(json) {
   if (json.field == 'NumDen') {
     drawHeatmap(json);
     return;
@@ -105,12 +114,33 @@ function heatmapJSON(json) {
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
-      heatmap_JSON = data;
-      drawHeatmap(json);
+      if (json['plot'] == 0) {
+        heatmap_JSON = data;
+        drawHeatmap(json);
+      }
+      else {
+        contour_JSON = data;
+        drawContour(json);
+      }
     }
   });
   event.preventDefault();
 }
+
+function drawHeatmap(json){
+  var data = d3PointGen(json);
+  renderChart(data);
+}
+
+function drawContour(json) {
+  var data = d3PointGen(json);
+  renderContour(data);
+}
+
+function renderContour(d) {
+  console.log(d);
+}
+
 
 function PyJSON(parts) {
   $.ajax({
@@ -332,6 +362,8 @@ function renderChart(data) {
     right: 10
   };
 
+  console.log(data);
+
   let w = WIDTH - margin.left - margin.right;
   let h = HEIGHT - margin.top - margin.bottom;
 
@@ -357,9 +389,9 @@ function renderChart(data) {
   var min = d3.min(data, function (d) { return d.pointCount; });
   var max = d3.max(data, function (d) { return d.pointCount; });
 
-  console.log([min, max]);
-  console.log([(min + (1 - min)), (max + (1 - min))]);
-  console.log([Math.log(min + (1 - min)), Math.log(max + (1 - min))]);
+  //console.log([min, max]);
+  //console.log([(min + (1 - min)), (max + (1 - min))]);
+  //console.log([Math.log(min + (1 - min)), Math.log(max + (1 - min))]);
 
   var linColorScale = d3.scaleSequential()
     .domain([min, max])
@@ -391,8 +423,8 @@ function renderChart(data) {
     .attr('height', function (d) { return rectHeight; })
     .attr('fill', function (d) { return logColorScale(Math.log(d.pointCount + (1 - min))); })
     .on('mouseover', function (d) {
-      console.log(d.pointCount);
-      console.log(Math.log(d.pointCount + (1 - min)));
+      //console.log(d.pointCount);
+      //console.log(Math.log(d.pointCount + (1 - min)));
     });
 
   svg.append('g')
@@ -459,7 +491,7 @@ function makeGrid(box, heat_p, heat_v) {
   return (bins);
 }
 
-function drawHeatmap(hjson) {
+function d3PointGen(json) {
   if (camera.type == "PerspectiveCamera") {
     return;
   }
@@ -467,6 +499,8 @@ function drawHeatmap(hjson) {
   d3.selectAll("svg").remove();
   updateFrustrum();
 
+
+  console.log(json);
   var arr, mat;
 
   var h_points = [];
@@ -478,9 +512,9 @@ function drawHeatmap(hjson) {
   var minY = 0;
   var maxY = 0;
 
-  var count = 0; 
+  var count = 0;
 
-  if (hjson['type'] == 'star') {
+  if (json['type'] == 'star') {
     count = star_particle_JSON['count'];
     arr = starPoints.geometry.attributes.position.array;
     mat = starPoints.matrix;
@@ -496,14 +530,18 @@ function drawHeatmap(hjson) {
     t.applyMatrix4(mat);
     if (frustum.containsPoint(t)) {
       h_points.push([t.x, t.y]);
-      if (hjson['field'] != 'NumDen')
-        h_val.push(heatmap_JSON[hjson['field']][i]);
+      if (json['field'] != 'NumDen') {
+        if (json['plot'] == 0)
+          h_val.push(heatmap_JSON[json['field']][i]);
+        else
+          h_val.push(contour_JSON[json['field']][i]);
+      }
 
-      if (arr[3 * i] > maxX) maxX = arr[3 * i]; 
-      if (arr[3 * i] < minX) minX = arr[3 * i]; 
+      if (arr[3 * i] > maxX) maxX = arr[3 * i];
+      if (arr[3 * i] < minX) minX = arr[3 * i];
 
-      if (arr[3 * i + 1] > maxY) maxY = arr[3 * i + 1]; 
-      if (arr[3 * i + 1] < minY) minY = arr[3 * i + 1]; 
+      if (arr[3 * i + 1] > maxY) maxY = arr[3 * i + 1];
+      if (arr[3 * i + 1] < minY) minY = arr[3 * i + 1];
     }
   }
 
@@ -515,7 +553,7 @@ function drawHeatmap(hjson) {
     bbox = [[camera.left, camera.bottom], [camera.right, camera.top]];
   }
 
-  renderChart(makeGrid(bbox, h_points, h_val));
+  return (makeGrid(bbox, h_points, h_val));
 }
 
 function particleUpdate() {
@@ -673,8 +711,6 @@ $(document).ready(function () {
     heatmapOptions.field = 'NumDen';
     heatmapOptions.subfield = '';
 
-    console.log(heatmapOptions);
-
     drawHeatmap(heatmapOptions);
 
     $('#pField').children().remove();
@@ -690,9 +726,6 @@ $(document).ready(function () {
     heatmapOptions.field = this.value;
     heatmapOptions.subfield = '';
 
-    console.log(heatmapOptions);
-
-
     $('#pSubField').children().remove();
 
     if (this.value == 'Velocities')
@@ -700,13 +733,12 @@ $(document).ready(function () {
     else if (this.value == 'GFM_StellarPhotometrics')
       populateSelect('#pSubField', magList);
     else {
-      heatmapJSON(heatmapOptions);
+      hcJSON(heatmapOptions);
     }
   });
 
   $('#pSubField').change(function () {
     heatmapOptions.subfield = this.value;
-    console.log(heatmapOptions);
-    heatmapJSON(heatmapOptions);
+    hcJSON(heatmapOptions);
   });
 });
