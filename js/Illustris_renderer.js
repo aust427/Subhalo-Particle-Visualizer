@@ -92,15 +92,6 @@ var heatmapOptions = {
   "subfield": ''
 };
 
-function tablePosition() {
-  var p = $("#container");
-  var pos = p.position();
-
-  var d = document.getElementById('opts_table');
-  d.style.left = WIDTH + 20 + 'px';
-  d.style.top = pos.top;
-}
-
 function heatmapJSON(json) {
   if (json.field == 'NumDen') {
     drawHeatmap(json);
@@ -411,7 +402,7 @@ function renderChart(data) {
     .attr("transform", "translate(0," + h + ")")
     .call(xaxis);
 
-  $("svg").css({ top: 80, left: WIDTH + 300, position: 'absolute' });
+  $("svg").css({ top: $('#animation').offset().top, left: WIDTH + 50, position: 'absolute' });
 
   d3.selectAll('g.tick')
     .style('stroke', 'white'); 
@@ -573,11 +564,11 @@ function populateSelect(tag, obj) {
 }
 
 $(document).ready(function () {
+  $('#d3_table').toggle("visible");
   init();
-  tablePosition();
 
   $("#P_cam").click(function () {
-    if (camera) {
+    if (camera && camera.type == "OrthographicCamera") {
       camera_p = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
       camera_p.position.x = camera.position.x;
       camera_p.position.y = camera.position.y;
@@ -585,17 +576,19 @@ $(document).ready(function () {
 
       camera = camera_p;
       d3.selectAll("svg").remove();
+      $('#d3_table').toggle("visible");
     }
   });
 
   $("#O_cam").click(function () {
-    if (camera) {
+    if (camera && camera.type == "PerspectiveCamera") {
       camera_o = new THREE.OrthographicCamera(-ASPECT * viewSize / 2, ASPECT * viewSize / 2, viewSize / 2, -viewSize / 2, -camera.position.z, FAR);
       camera_o.position.x = camera.position.x;
       camera_o.position.y = camera.position.y;
       camera_o.position.z = camera.position.z;
 
       camera = camera_o;
+      $('#d3_table').toggle("visible");
       drawHeatmap(heatmapOptions);
     }
   });

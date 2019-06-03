@@ -22,93 +22,103 @@
             <button type="submit">Submit</button>
         </form>
     </div>
+    <div id="three_table">
+        <table id="anim_table">
+            <tr>
+                <th>Camera Type</th>
+                <th>Movement</th>
+                <th>Particle</th>
+                <th>Display</th>
+            </tr>
+            <tr>
+                <td>
+                    <button type="button" id="P_cam">Perspective</button>
+                </td>
+                <td>
+                    Step:
+                    <input type="number" id="step_input" value="4">
+                    kpc / frame
+                </td>
+                <td>
+                    Rotation:
+                    <input type="number" id="rot_input" value="0.075">
+                    rad / frame
+                </td>
+                <td>
+                    <input type="checkbox" id="display_stars"> Stars
+                    <input type="checkbox" id="display_gas"> Gas
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button type="button" id="O_cam">Orthographic</button>
+                </td>
+                <td>
+                    <button type="button" class="reset" id="reset_cam">Reset Camera</button>
+                </td>
+                <td>
+                    <button type="button" class="reset" id="reset_rot">Reset Particles</button>
+                </td>
+                <td>
+
+                    <input type="checkbox" id="display_grid"> Grid
+                    <input type="checkbox" id="display_axes"> Axes
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div id="d3_table">
+        <table id="heat_table">
+            <tr>
+                <td></td>
+                <td>Particle</td>
+                <td>Field</td>
+                <td>SubField</td>
+                <td>Resolution</td>
+            </tr>
+            <tr>
+                <td>Heatmap</td>
+                <td>
+                    <select id="pType">
+                        <option value=""></option>
+                        <option value="star">Star</option>
+                        <option value="gas">Gas</option>
+                    </select>
+                </td>
+                <td>
+                    <select id="pField"></select>
+                </td>
+                <td>
+                    <select id="pSubField"></select>
+                </td>
+                <td>
+                    <input type="number" id="bin_num" value="20">
+                    bins
+                </td>
+            </tr>
+            <tr>
+                <td>Contour</td>
+                <td>
+                    <select id="pType_cont">
+                        <option value=""></option>
+                        <option value="star">Star</option>
+                        <option value="gas">Gas</option>
+                    </select>
+                </td>
+                <td>
+                    <select id="pField_cont"></select>
+                </td>
+                <td>
+                    <select id="pSubField_cont"></select>
+                </td>
+                <td>
+                </td>
+            </tr>
+        </table>
+    </div>
     <div id="animation">
         <div id="container"></div>
     </div>
-    <table id="opts_table">
-        <tr>
-            <th class="tab_cell_head">Camera Type</th>
-        </tr>
-        <tr>
-            <td>
-                <button type="button" id="P_cam">Perspective</button>
-                <button type="button" id="O_cam">Orthographic</button>
-            </td>
-        </tr>
-        <tr>
-            <th class="tab_cell_head">Camera Controls <br /> (Translational)</th>
-        </tr>
-        <tr>
-            <td>
-                Step:
-                <input type="number" id="step_input" value="4">
-                kpc / frame
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <button type="button" class="reset" id="reset_cam">Reset Camera</button>
-            </td>
-        </tr>
-        <tr>
-            <th class="tab_cell_head">Particle Controls <br /> (Rotational)</th>
-        </tr>
-        <tr>
-            <td>
-                Rotation:
-                <input type="number" id="rot_input" value="0.075">
-                rad / frame
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <button type="button" class="reset" id="reset_rot">Reset Particles</button>
-            </td>
-        </tr>
-        <tr>
-            <th class="tab_cell_head">Toggle Displays</th>
-        </tr>
-        <tr>
-            <td>
-                <input type="checkbox" id="display_grid"> Grid<br>
-                <input type="checkbox" id="display_axes"> Axes<br>
-                <input type="checkbox" id="display_stars"> Stars<br>
-                <input type="checkbox" id="display_gas"> Gas<br>
-            </td>
-        </tr>
-        <tr>
-            <th class="tab_cell_head">Heatmap</th>
-        </tr>
-        <tr>
-            <td>
-                <input type="number" id="bin_num" value="20">
-                bins
-            </td>
-        </tr>
-        <tr>
-            <td>
-                Type:
-                <select id="pType">
-                    <option value=""></option>
-                    <option value="star">Star</option>
-                    <option value="gas">Gas</option>
-                </select>
-            </td>
-        <tr>
-            <td>
-                Field:
-                <select id="pField">
-                </select>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                Subfield:
-                <select id="pSubField">
-                </select>
-            </td>
-        </tr>
-    </table>
     <script type="text/javascript" src='../js/common.js'></script>
     <script type="text/javascript" src='../js/Illustris_renderer.js'></script>
 </body>
