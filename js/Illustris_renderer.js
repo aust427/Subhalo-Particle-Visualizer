@@ -77,6 +77,12 @@ var gasList = {
   'Volume': 'V'
 };
 
+const margin = {
+  top: 0,
+  bottom: 20,
+  left: 30,
+  right: 10
+};
 
 var pMaterial = new THREE.PointsMaterial({
   size: 1,
@@ -127,7 +133,8 @@ function hcJSON(json) {
   event.preventDefault();
 }
 
-function drawHeatmap(json){
+function drawHeatmap(json) {
+  d3.selectAll("svg").remove();
   var data = d3PointGen(json);
   renderChart(data);
 }
@@ -136,11 +143,6 @@ function drawContour(json) {
   var data = d3PointGen(json);
   renderContour(data);
 }
-
-function renderContour(d) {
-  console.log(d);
-}
-
 
 function PyJSON(parts) {
   $.ajax({
@@ -355,13 +357,6 @@ function init_scene(dat) {
 }
 
 function renderChart(data) {
-  const margin = {
-    top: 0,
-    bottom: 20,
-    left: 30,
-    right: 10
-  };
-
   console.log(data);
 
   let w = WIDTH - margin.left - margin.right;
@@ -440,6 +435,54 @@ function renderChart(data) {
     .style('stroke', 'white'); 
 
   document.getElementById("chart").style.width = document.getElementById("render").style.width;
+  drawContour(contourOptions);
+}
+
+function renderContour(d) {
+
+  let w = WIDTH - margin.left - margin.right;
+  let h = HEIGHT - margin.top - margin.bottom;
+
+  var attsContour = {
+    'width': Math.sqrt(d['length']),
+    'height': Math.sqrt(d['length']),
+    'values': []
+  }
+
+  for (i = 0; i < d['length']; i++) {
+    attsContour['values'].push(Math.log(1+d[i]['pointCount']));
+  }
+
+  var min = d3.min(attsContour['values']);
+  var max = d3.max(attsContour['values']);
+
+  var svg = d3.select('svg').append('g')
+    .attr('id', 'chart')
+    .attr('width', w + margin.left + margin.right)
+    .attr('height', h + margin.top + margin.bottom)
+    .attr('stroke', '#00ff00');
+    var width = +svg.attr("width"),
+    height = +svg.attr("height");
+
+var interpolateTerrain = function(t) { '#ff6d3d' },
+    color = interpolateTerrain(1);
+
+
+  console.log(attsContour);
+
+  var interpolateTerrain = function (t) { 0 };
+
+  var color = d3.scaleSequential(interpolateTerrain).domain([min, max]);
+
+  svg.selectAll("path")
+    .data(d3.contours()
+      .size([attsContour.width, attsContour.height])
+      .thresholds(d3.range(min, max, ((max - min ) / 10)))
+      (attsContour['values']))
+    .enter().append("path")
+    .attr("d", d3.geoPath(d3.geoIdentity().scale(width / attsContour.width)))
+    .attr("fill", '#00000000');
+  
 }
 
 function makeBins(x, y, box, w, h, heat_p, heat_v) {
@@ -496,7 +539,6 @@ function d3PointGen(json) {
     return;
   }
 
-  d3.selectAll("svg").remove();
   updateFrustrum();
 
 
