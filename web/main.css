@@ -51,3 +51,8 @@ table, th {
 #three_table {
     display: inline-block;
 }
+
+#contour {
+    transform-origin: center;
+    transform: rotate(-90deg);
+}

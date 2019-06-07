@@ -357,36 +357,29 @@ function init_scene(dat) {
 }
 
 function renderChart(data) {
-  console.log(data);
+  let h = HEIGHT;
 
-  let w = WIDTH - margin.left - margin.right;
-  let h = HEIGHT - margin.top - margin.bottom;
-
-  const rectWidth = w / gridX;
-  const rectHeight = h / gridY;
+  const rectWidth = WIDTH / gridX;
+  const rectHeight = rectWidth;
 
   const x = d3.scaleLinear()
     .domain([
       d3.min(data, function (d) { return d.upperLeft[0]; }),
       d3.max(data, function (d) { return d.lowerRight[0]; })
     ])
-    .range([0, w]);
+    .range([0, WIDTH]);
 
   const y = d3.scaleLinear()
     .domain([
       d3.min(data, function (d) { return d.upperLeft[1]; }),
       d3.max(data, function (d) { return d.lowerRight[1]; })
     ])
-    .range([h, 0]);
+    .range([WIDTH, 0]);
 
   var interpolators = ["Inferno"];
 
   var min = d3.min(data, function (d) { return d.pointCount; });
   var max = d3.max(data, function (d) { return d.pointCount; });
-
-  //console.log([min, max]);
-  //console.log([(min + (1 - min)), (max + (1 - min))]);
-  //console.log([Math.log(min + (1 - min)), Math.log(max + (1 - min))]);
 
   var linColorScale = d3.scaleSequential()
     .domain([min, max])
@@ -404,10 +397,18 @@ function renderChart(data) {
 
   const svg = d3.select('#container').append('svg')
     .attr('id', 'chart')
-    .attr('width', w + margin.left + margin.right)
-    .attr('height', h + margin.top + margin.bottom)
+    .attr('width', WIDTH + margin.left + margin.right)
+    .attr('height', WIDTH + margin.left + margin.right)
     .append('g')
-    .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+/*  svg.append('g')
+    .call(yaxis)
+    .attr('id', 'yaxis');
+
+  svg.append('g')
+    .attr("transform", "translate(0," + w + ")")
+    .attr('id', 'xaxis')
+    .call(xaxis); */
 
   const rects = svg.selectAll('rect')
     .data(data, function (d) { return d; })
@@ -418,34 +419,23 @@ function renderChart(data) {
     .attr('height', function (d) { return rectHeight; })
     .attr('fill', function (d) { return logColorScale(Math.log(d.pointCount + (1 - min))); })
     .on('mouseover', function (d) {
-      //console.log(d.pointCount);
-      //console.log(Math.log(d.pointCount + (1 - min)));
     });
-
-  svg.append('g')
-    .call(yaxis);
-
-  svg.append('g')
-    .attr("transform", "translate(0," + h + ")")
-    .call(xaxis);
 
   $("svg").css({ top: $('#animation').offset().top, left: WIDTH + 50, position: 'absolute' });
 
   d3.selectAll('g.tick')
-    .style('stroke', 'white'); 
+    .style('stroke', '#FFFFFF'); 
 
   document.getElementById("chart").style.width = document.getElementById("render").style.width;
+
+
   drawContour(contourOptions);
 }
 
 function renderContour(d) {
-
-  let w = WIDTH - margin.left - margin.right;
-  let h = HEIGHT - margin.top - margin.bottom;
-
   var attsContour = {
-    'width': Math.sqrt(d['length']),
-    'height': Math.sqrt(d['length']),
+    'width': $('#bin_num')[0].value,
+    'height': $('#bin_num')[0].value,
     'values': []
   }
 
@@ -457,18 +447,16 @@ function renderContour(d) {
   var max = d3.max(attsContour['values']);
 
   var svg = d3.select('svg').append('g')
-    .attr('id', 'chart')
-    .attr('width', w + margin.left + margin.right)
-    .attr('height', h + margin.top + margin.bottom)
-    .attr('stroke', '#00ff00');
-    var width = +svg.attr("width"),
-    height = +svg.attr("height");
+    .attr('id', 'contour')
+    .attr('width', $('rect').width() * $('#bin_num')[0].value)
+    .attr('height', $('rect').height() * $('#bin_num')[0].value)
+    .attr('stroke-width', "0.5")
+    .attr('stroke', '#00ffff');
+
+  var width = +svg.attr("width");
 
 var interpolateTerrain = function(t) { '#ff6d3d' },
     color = interpolateTerrain(1);
-
-
-  console.log(attsContour);
 
   var interpolateTerrain = function (t) { 0 };
 
@@ -477,12 +465,17 @@ var interpolateTerrain = function(t) { '#ff6d3d' },
   svg.selectAll("path")
     .data(d3.contours()
       .size([attsContour.width, attsContour.height])
-      .thresholds(d3.range(min, max, ((max - min ) / 10)))
+      .thresholds(d3.range(min, max, ((max - min) / 20)))
+      .smooth('smooth')
       (attsContour['values']))
     .enter().append("path")
-    .attr("d", d3.geoPath(d3.geoIdentity().scale(width / attsContour.width)))
+    .attr("d", d3.geoPath(d3.geoIdentity().scale(width / $('#bin_num')[0].value)))
+    .attr('transform', 'translate(20,20)')
     .attr("fill", '#00000000');
-  
+
+    $("#contour").css({ top: $('#chart').offset().top });
+
+
 }
 
 function makeBins(x, y, box, w, h, heat_p, heat_v) {
@@ -540,7 +533,6 @@ function d3PointGen(json) {
   }
 
   updateFrustrum();
-
 
   console.log(json);
   var arr, mat;
@@ -626,11 +618,11 @@ function update() {
   starPoints.geometry.verticesNeedUpdate = true; 
   cameraUpdate(0.001);
 
+  updateFrustrum();
+
   if (currentlyPressedKey[32]) {
        drawHeatmap(heatmapOptions);
   }
-
-  updateFrustrum();
 
   renderer.render(scene, camera);
 
@@ -669,7 +661,12 @@ $(document).ready(function () {
 
       camera = camera_o;
       $('#d3_table').toggle("visible");
-      drawHeatmap(heatmapOptions);
+
+      $('#pType').val('star');
+      $('#pType').trigger('change');
+
+      $('#pType_cont').val('star');
+      $('#pType_cont').trigger('change');
     }
   });
 
