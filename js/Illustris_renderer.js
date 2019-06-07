@@ -26,6 +26,14 @@ var colMax = 0;
 
 var mat = createCanvasMaterial('#FFFFFF', 256);
 
+var pMaterial = new THREE.PointsMaterial({
+  size: 1,
+  map: mat,
+  vertexColors: THREE.VertexColors,
+  blending: THREE.AdditiveBlending,
+  alphaTest: 0.3
+});
+
 var velList = {
   0: 'v_x',
   1: 'v_y',
@@ -84,16 +92,7 @@ const margin = {
   right: 10
 };
 
-var pMaterial = new THREE.PointsMaterial({
-  size: 1,
-  map: mat,
-  vertexColors: THREE.VertexColors,
-  blending: THREE.AdditiveBlending,
-  alphaTest: 0.3
-});
-
 var heatmapOptions = {
-  "plot": 0,
   "type": 'star',
   "field": 'NumDen',
   "subfield": ''
@@ -101,47 +100,38 @@ var heatmapOptions = {
 
 
 var contourOptions = {
-  "plot": 1,
   "type": 'star',
   "field": 'NumDen',
   "subfield": ''
 };
 
-function hcJSON(json) {
-  if (json.field == 'NumDen') {
-    drawHeatmap(json);
+function hcJSON(opts_json, plot) {
+  if (opts_json.field == 'NumDen') {
+    if (plot == 0)
+      drawHeatmap();
+    else
+      drawContour();
     return;
   }
 
   $.ajax({
     type: 'POST',
     url: path + "/heatmap_JSON",
-    data: JSON.stringify(json),
+    data: JSON.stringify(opts_json),
     dataType: 'json',
     contentType: 'application/json; charset=UTF-8',
     success: function (data) {
-      if (json['plot'] == 0) {
+      if (plot == 0) {
         heatmap_JSON = data;
-        drawHeatmap(json);
+        drawHeatmap();
       }
       else {
         contour_JSON = data;
-        drawContour(json);
+        drawContour();
       }
     }
   });
   event.preventDefault();
-}
-
-function drawHeatmap(json) {
-  d3.selectAll("svg").remove();
-  var data = d3PointGen(json);
-  renderChart(data);
-}
-
-function drawContour(json) {
-  var data = d3PointGen(json);
-  renderContour(data);
 }
 
 function PyJSON(parts) {
@@ -356,6 +346,46 @@ function init_scene(dat) {
   requestAnimationFrame(update);
 }
 
+function particleUpdate() {
+  if (currentlyPressedKey[74]) {
+    starPoints.rotation.y += angle;
+    gasPoints.rotation.y += angle;
+  }
+  if (currentlyPressedKey[76]) {
+    starPoints.rotation.y -= angle;
+    gasPoints.rotation.y -= angle;}
+
+  if (currentlyPressedKey[73]) {
+    starPoints.rotation.x += angle;
+    gasPoints.rotation.x += angle;
+  }
+
+  if (currentlyPressedKey[75]) {
+    starPoints.rotation.x -= angle;
+    gasPoints.rotation.x -= angle;
+  }
+
+  starPoints.updateMatrixWorld();
+  gasPoints.updateMatrixWorld();
+}
+
+function update() {
+  particleUpdate();
+  starPoints.geometry.verticesNeedUpdate = true; 
+  cameraUpdate(0.001);
+
+  updateFrustrum();
+
+  if (currentlyPressedKey[32]) {
+       drawHeatmap();
+  }
+
+  renderer.render(scene, camera);
+
+  id = requestAnimationFrame(update);
+}
+
+
 function renderChart(data) {
   let h = HEIGHT;
 
@@ -400,15 +430,16 @@ function renderChart(data) {
     .attr('width', WIDTH + margin.left + margin.right)
     .attr('height', WIDTH + margin.left + margin.right)
     .append('g')
+    .attr('id', 'heatmap');
 
-/*  svg.append('g')
-    .call(yaxis)
-    .attr('id', 'yaxis');
-
-  svg.append('g')
-    .attr("transform", "translate(0," + w + ")")
-    .attr('id', 'xaxis')
-    .call(xaxis); */
+  /*  svg.append('g')
+      .call(yaxis)
+      .attr('id', 'yaxis');
+  
+    svg.append('g')
+      .attr("transform", "translate(0," + w + ")")
+      .attr('id', 'xaxis')
+      .call(xaxis); */
 
   const rects = svg.selectAll('rect')
     .data(data, function (d) { return d; })
@@ -424,12 +455,9 @@ function renderChart(data) {
   $("svg").css({ top: $('#animation').offset().top, left: WIDTH + 50, position: 'absolute' });
 
   d3.selectAll('g.tick')
-    .style('stroke', '#FFFFFF'); 
+    .style('stroke', '#FFFFFF');
 
   document.getElementById("chart").style.width = document.getElementById("render").style.width;
-
-
-  drawContour(contourOptions);
 }
 
 function renderContour(d) {
@@ -440,7 +468,7 @@ function renderContour(d) {
   }
 
   for (i = 0; i < d['length']; i++) {
-    attsContour['values'].push(Math.log(1+d[i]['pointCount']));
+    attsContour['values'].push(Math.log(1 + d[i]['pointCount']));
   }
 
   var min = d3.min(attsContour['values']);
@@ -455,7 +483,7 @@ function renderContour(d) {
 
   var width = +svg.attr("width");
 
-var interpolateTerrain = function(t) { '#ff6d3d' },
+  var interpolateTerrain = function (t) { '#ff6d3d' },
     color = interpolateTerrain(1);
 
   var interpolateTerrain = function (t) { 0 };
@@ -473,9 +501,7 @@ var interpolateTerrain = function(t) { '#ff6d3d' },
     .attr('transform', 'translate(20,20)')
     .attr("fill", '#00000000');
 
-    $("#contour").css({ top: $('#chart').offset().top });
-
-
+  $("#contour").css({ top: $('#chart').offset().top });
 }
 
 function makeBins(x, y, box, w, h, heat_p, heat_v) {
@@ -493,7 +519,7 @@ function makeBins(x, y, box, w, h, heat_p, heat_v) {
   bin.lowerRight[0] = bin.upperLeft[0] + w;
   bin.lowerRight[1] = bin.upperLeft[1] + h;
 
-  var i = 0; 
+  var i = 0;
 
   // to fix: this will currently count points twice if they fall on a datum's bbox edge
   heat_p.forEach(function (p) {
@@ -504,7 +530,7 @@ function makeBins(x, y, box, w, h, heat_p, heat_v) {
         bin.pointCount += 1;
 
       bin.points.push(p);
-      i++; 
+      i++;
     }
   });
 
@@ -527,18 +553,18 @@ function makeGrid(box, heat_p, heat_v) {
   return (bins);
 }
 
-function d3PointGen(json) {
+function d3PointGen(opts, opts_json) {
   if (camera.type == "PerspectiveCamera") {
     return;
   }
 
   updateFrustrum();
 
-  console.log(json);
+  console.log(opts);
   var arr, mat;
 
-  var h_points = [];
-  var h_val = [];
+  var points = [];
+  var val = [];
 
   var minX = 0;
   var maxX = 0;
@@ -548,7 +574,7 @@ function d3PointGen(json) {
 
   var count = 0;
 
-  if (json['type'] == 'star') {
+  if (opts['type'] == 'star') {
     count = star_particle_JSON['count'];
     arr = starPoints.geometry.attributes.position.array;
     mat = starPoints.matrix;
@@ -563,12 +589,9 @@ function d3PointGen(json) {
     var t = new THREE.Vector3(arr[3 * i], arr[3 * i + 1], arr[3 * i + 2]);
     t.applyMatrix4(mat);
     if (frustum.containsPoint(t)) {
-      h_points.push([t.x, t.y]);
-      if (json['field'] != 'NumDen') {
-        if (json['plot'] == 0)
-          h_val.push(heatmap_JSON[json['field']][i]);
-        else
-          h_val.push(contour_JSON[json['field']][i]);
+      points.push([t.x, t.y]);
+      if (opts['field'] != 'NumDen') {
+        val.push(opts_json[opts['field']][i]);
       }
 
       if (arr[3 * i] > maxX) maxX = arr[3 * i];
@@ -579,54 +602,25 @@ function d3PointGen(json) {
     }
   }
 
-  var bbox = [];
-  if (camera.type == "PerspectiveCamera") {
-    bbox = [[Math.floor(minX), Math.floor(minY)], [Math.ceil(maxX), Math.ceil(maxY)]];
-  }
-  else {
-    bbox = [[camera.left, camera.bottom], [camera.right, camera.top]];
-  }
+  var bbox = [[camera.left, camera.bottom], [camera.right, camera.top]];
 
-  return (makeGrid(bbox, h_points, h_val));
+  return (makeGrid(bbox, points, val));
 }
 
-function particleUpdate() {
-  if (currentlyPressedKey[74]) {
-    starPoints.rotation.y += angle;
-    gasPoints.rotation.y += angle;
-  }
-  if (currentlyPressedKey[76]) {
-    starPoints.rotation.y -= angle;
-    gasPoints.rotation.y -= angle;}
-
-  if (currentlyPressedKey[73]) {
-    starPoints.rotation.x += angle;
-    gasPoints.rotation.x += angle;
-  }
-
-  if (currentlyPressedKey[75]) {
-    starPoints.rotation.x -= angle;
-    gasPoints.rotation.x -= angle;
-  }
-
-  starPoints.updateMatrixWorld();
-  gasPoints.updateMatrixWorld();
+function drawHeatmap() {
+  d3.selectAll("g#heatmap").remove();
+  var data = d3PointGen(heatmapOptions, heatmap_JSON);
+  renderChart(data);
 }
 
-function update() {
-  particleUpdate();
-  starPoints.geometry.verticesNeedUpdate = true; 
-  cameraUpdate(0.001);
+function drawContour() {
+  var data = d3PointGen(contourOptions, contour_JSON);
+  renderContour(data);
+}
 
-  updateFrustrum();
-
-  if (currentlyPressedKey[32]) {
-       drawHeatmap(heatmapOptions);
-  }
-
-  renderer.render(scene, camera);
-
-  id = requestAnimationFrame(update);
+function drawD3Obj() {
+  drawHeatmap();
+  drawContour();
 }
 
 function populateSelect(tag, obj) {
@@ -634,6 +628,7 @@ function populateSelect(tag, obj) {
     $(tag).append('<option value=' + Object.keys(obj)[i] + '>' + Object.values(obj)[i] + '</option>');
   }
 }
+
 
 $(document).ready(function () {
   $('#d3_table').toggle("visible");
@@ -647,6 +642,7 @@ $(document).ready(function () {
       camera_p.position.z = camera.position.z;
 
       camera = camera_p;
+
       d3.selectAll("svg").remove();
       $('#d3_table').toggle("visible");
     }
@@ -750,7 +746,7 @@ $(document).ready(function () {
     heatmapOptions.field = 'NumDen';
     heatmapOptions.subfield = '';
 
-    drawHeatmap(heatmapOptions);
+    drawD3Obj();
 
     $('#pField').children().remove();
     $('#pSubField').children().remove();
@@ -772,12 +768,12 @@ $(document).ready(function () {
     else if (this.value == 'GFM_StellarPhotometrics')
       populateSelect('#pSubField', magList);
     else {
-      hcJSON(heatmapOptions);
+      hcJSON(heatmapOptions, 0);
     }
   });
 
   $('#pSubField').change(function () {
     heatmapOptions.subfield = this.value;
-    hcJSON(heatmapOptions);
+    hcJSON(heatmapOptions, 0);
   });
 });
