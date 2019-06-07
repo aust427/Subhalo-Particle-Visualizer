@@ -189,13 +189,6 @@ function createCanvasMaterial(color, size) {
   return texture;
 }
 
-/**
- * Summary. calculate distance ratio for star color and returns combination
- * 
- * @param {any} T         
- * 
- * @return {any} [T, set] 
- */
 function colorCalc(p) {
   var lb_x = 0;
   var lb_rgb = [1, 0, 0];
@@ -276,13 +269,6 @@ function createGrids() {
   scene.add(grid); 
 }
 
-/**
- * Summary. Creates x-y-z axes for visually orienting the scene. 
- * 
- * @param {any} vec 
- * @param {any} positive
- * @param {any} line_col
- */
 function createAxes(vec, positive, line_col, axis) {
   var line_material = null;
 
@@ -377,14 +363,13 @@ function update() {
   updateFrustrum();
 
   if (currentlyPressedKey[32]) {
-       drawHeatmap();
+    drawD3Obj();
   }
 
   renderer.render(scene, camera);
 
   id = requestAnimationFrame(update);
 }
-
 
 function renderChart(data) {
   let h = HEIGHT;
@@ -614,11 +599,13 @@ function drawHeatmap() {
 }
 
 function drawContour() {
+  d3.selectAll("g#contour").remove();
   var data = d3PointGen(contourOptions, contour_JSON);
   renderContour(data);
 }
 
 function drawD3Obj() {
+  d3.selectAll("svg").remove();
   drawHeatmap();
   drawContour();
 }
@@ -741,12 +728,13 @@ $(document).ready(function () {
     step = ($('#step_input')[0].valueAsNumber);
   });
 
+  // heatmap options 
   $('#pType').change(function () {
     heatmapOptions.type = this.value;
     heatmapOptions.field = 'NumDen';
     heatmapOptions.subfield = '';
 
-    drawD3Obj();
+    drawHeatmap();
 
     $('#pField').children().remove();
     $('#pSubField').children().remove();
@@ -775,5 +763,42 @@ $(document).ready(function () {
   $('#pSubField').change(function () {
     heatmapOptions.subfield = this.value;
     hcJSON(heatmapOptions, 0);
+  });
+
+  // contour options
+  $('#pType_cont').change(function () {
+    contourOptions.type = this.value;
+    contourOptions.field = 'NumDen';
+    contourOptions.subfield = '';
+
+    drawContour();
+
+    $('#pField_cont').children().remove();
+    $('#pSubField_cont').children().remove();
+
+    if (this.value == 'star')
+      populateSelect('#pField_cont', starList);
+    else if (this.value == 'gas')
+      populateSelect('#pField_cont', gasList);
+  });
+
+  $('#pField_cont').change(function () {
+    contourOptions.field = this.value;
+    contourOptions.subfield = '';
+
+    $('#pSubField_cont').children().remove();
+
+    if (this.value == 'Velocities')
+      populateSelect('#pSubField_cont', velList);
+    else if (this.value == 'GFM_StellarPhotometrics')
+      populateSelect('#pSubField_cont', magList);
+    else {
+      hcJSON(contourOptions, 1);
+    }
+  });
+
+  $('#pSubField_cont').change(function () {
+    contourOptions.subfield = this.value;
+    hcJSON(contourOptions, 1);
   });
 });
