@@ -189,22 +189,13 @@ function createCanvasMaterial(color, size) {
   return texture;
 }
 
-function colorCalc(p) {
-  var lb_x = 0;
+function colorCalc(ratio) {
   var lb_rgb = [1, 0, 0];
-
-  var hb_x = 1;
   var hb_rgb = [0, 0, 1];
 
-  // distance calculator between lower and higher bound
-  var d_lb = p - lb_x;
-  var d_hb = hb_x - p;
-  var tot_dist = hb_x - lb_x;
-
   var set = [];
-
   for (var i = 0; i < 3; i++) {
-    set.push(lb_rgb[i] * (1 - d_lb / tot_dist) + hb_rgb[i] * (1 - d_hb / tot_dist));
+    set.push(lb_rgb[i] * (1 - ratio) + hb_rgb[i] * (ratio));
   }
 
   return (set);
@@ -215,27 +206,27 @@ function createParticles(particleJSON, type) {
   var positions = [];
   var T = [];
   var T_max = 0;
+  var T_min = Math.pow(10, 10);
   var colors = [];
 
-  $('#display_' + type)[0].checked = true; 
+  $('#display_' + type)[0].checked = true;
 
   var pCount = particleJSON['count'];
 
   for (var p = 0; p < pCount; p++) {
-    var pX = particleJSON['pos-x'][p];
-    var pY = particleJSON['pos-y'][p];
-    var pZ = particleJSON['pos-z'][p];
+    positions.push(particleJSON['pos-x'][p], particleJSON['pos-y'][p], particleJSON['pos-z'][p]);
 
-    positions.push(pX, pY, pZ);
     if (type == 'gas') {
       var u = gas_particle_JSON['int-eng'][p];
       var nelec = gas_particle_JSON['nelec'][p];
-      var T_calc = Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec);
+      var T_calc = Math.log10(Math.pow(10, 10) * (Gamma_Minus_1 * ProtonMass / Boltzmann) * u * (1 + 4 * yhelium) / (1 + yhelium + nelec));
 
       T.push(T_calc);
 
       if (T_calc > T_max)
         T_max = T_calc;
+      if (T_calc < T_min)
+        T_min = T_calc;
     }
     else
       colors.push((255 / 255), (255 / 255), (0 / 255));
@@ -243,11 +234,12 @@ function createParticles(particleJSON, type) {
 
   if (type == 'gas') {
     for (var p = 0; p < pCount; p++) {
-      var T_col = colorCalc(T[p] / T_max);
+      var T_col = colorCalc((T[p] - T_min) / (T_max - T_min));
       colors.push(T_col[0], T_col[1], T_col[2]);
     }
   }
 
+  console.log(colors);
   geometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geometry.computeBoundingSphere();
@@ -256,6 +248,17 @@ function createParticles(particleJSON, type) {
   points.name = type;
   scene.add(points);
   return (points);
+}
+
+function createGrids() {
+  var size = 10000;
+  var divisions = 100;
+  var colorGrid = 0x3d3d3d;
+
+  var grid = new THREE.GridHelper(size, divisions, colorGrid, colorGrid);
+  grid.name = 'grid';
+
+  scene.add(grid);
 }
 
 function createGrids() {
